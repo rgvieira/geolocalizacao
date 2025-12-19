@@ -28,6 +28,18 @@
     .container { padding:16px; display:grid; gap:16px; }
     .controls,.table-panel { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:12px; }
     .controls-grid { display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr; gap:12px; align-items:center; }
+    #controls {
+  display: flex;
+  gap: 10px;
+}
+
+#geoBtn {
+  order: 0; /* aparece primeiro */
+}
+
+#measureBtn {
+  order: 1; /* aparece depois */
+}
     button,input[type="text"],select {
       background:var(--accent); border:1px solid var(--accent-border);
       color:var(--text); padding:8px 12px; border-radius:6px; font-size:14px; cursor:pointer;
@@ -86,6 +98,7 @@
         <button id="downloadBtn" disabled><i class="fa fa-download"></i> Download CSV</button>
       </div>
       <div style="text-align:right;">
+         <button id="geoBtn">Geo</button>
         <button id="measureBtn"><i class="fa fa-ruler"></i> Medir</button>
       </div>
     </div>
@@ -143,6 +156,25 @@ const drawControl = new L.Control.Draw({
   },
   edit: { featureGroup: drawnItems }
 });
+// Geolocalizacao
+document.getElementById("geoBtn").onclick = () => {
+  document.getElementById("locStatus").textContent = "Obtendo posição...";
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const coord = [pos.coords.latitude, pos.coords.longitude];
+      map.setView(coord, 17);
+      L.marker(coord, { icon: startIcon })
+        .addTo(map)
+        .bindTooltip("Você está aqui!", { direction: "top", offset: [0, -20], className: "polygon-label" })
+        .openTooltip();
+      document.getElementById("locStatus").textContent = "Localização obtida!";
+    },
+    err => {
+      document.getElementById("locStatus").textContent = "Erro ao obter localização: " + err.message;
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+};
 
 // Plugin para medir distância
 let measureActive = false;
@@ -273,7 +305,7 @@ function renderHeader(){
   const tr=document.getElementById('tableHeader'); tr.innerHTML='';
   const thIdx=document.createElement('th'); thIdx.textContent='#'; tr.appendChild(thIdx);
   CSV_COLUMNS.forEach(c=>{const th=document.createElement('th'); th.textContent=c; tr.appendChild(th);});
-  const thGeo=document.createElement('th'); thGeo.textContent='Geo'; tr.appendChild(thGeo);
+
   const thPlot=document.createElement('th'); thPlot.textContent='Plotar'; tr.appendChild(thPlot);
   const thCrud=document.createElement('th'); thCrud.textContent='CRUD'; tr.appendChild(thCrud);
 }
@@ -309,9 +341,7 @@ function renderTable(){
 
     const tdGeo=document.createElement('td');
     const btnGeo=document.createElement('button');
-    btnGeo.innerHTML='<i class="fa fa-location-crosshairs"></i> Geo';
-    btnGeo.onclick=()=>geolocalizarRow(globalIndex);
-    tdGeo.appendChild(btnGeo);
+
 
     if(pendingGeo && pendingGeo.index===globalIndex){
       const ga=document.createElement('div'); ga.className='geo-actions';
