@@ -480,12 +480,12 @@ navigator.geolocation.getCurrentPosition(
       const currentLng = tabelaGeo[globalIndex]["Longitude"] ?? "";
 console.log(1,currentLat,currentLat)
       tabelaGeo[globalIndex]["Latitude"] = currentLat
-        ? currentLat + ";" + lat
-        : lat;
+        ? currentLat + ";" + pos.coords.latitude
+        : pos.coords.latitude;
 
       tabelaGeo[globalIndex]["Longitude"] = currentLng
-        ? currentLng + ";" + lng
-        : lng;
+        ? currentLng + ";" + pos.coords.longitude
+        : pos.coords.longitude;
 console.log(2,currentLat,currentLat)
       document.getElementById('locStatus').textContent='';
       // Re-renderiza a tabela para mostrar os novos valores
