@@ -333,7 +333,7 @@ function renderHeader(){
   const tr=document.getElementById('tableHeader'); tr.innerHTML='';
   const thIdx=document.createElement('th'); thIdx.textContent='#'; tr.appendChild(thIdx);
   CSV_COLUMNS.forEach(c=>{const th=document.createElement('th'); th.textContent=c; tr.appendChild(th);});
-
+ const thGeo=document.createElement('th'); thGeo.textContent='Geo'; tr.appendChild(thGeo);
   const thPlot=document.createElement('th'); thPlot.textContent='Plotar'; tr.appendChild(thPlot);
   const thCrud=document.createElement('th'); thCrud.textContent='CRUD'; tr.appendChild(thCrud);
 }
@@ -372,6 +372,34 @@ function renderTable() {
         td.textContent = row[col] ?? '';
       }
       tr.appendChild(td);
+
+      // 👉 Se a coluna atual for Longitude, adiciona a coluna Geo logo depois
+      if (col.toLowerCase() === "longitude") {
+        const tdGeo = document.createElement('td');
+        const btnGeo = document.createElement('button');
+        btnGeo.innerHTML = '<i class="fa fa-location-dot"></i> Geo';
+        btnGeo.onclick = () => geolocalizarRow(globalIndex);
+        tdGeo.appendChild(btnGeo);
+
+        // se houver pendingGeo, mostra ações extras
+        if (pendingGeo && pendingGeo.index === globalIndex) {
+          const ga = document.createElement('div');
+          ga.className = 'geo-actions';
+
+          const btnLimpar = document.createElement('button');
+          btnLimpar.innerHTML = '<i class="fa fa-trash"></i> Limpar';
+          btnLimpar.onclick = () => aplicarGeo(globalIndex, pendingGeo.lat, pendingGeo.lng, 'limpar');
+
+          const btnAtualizar = document.createElement('button');
+          btnAtualizar.innerHTML = '<i class="fa fa-rotate-right"></i> Atualizar';
+          btnAtualizar.onclick = () => aplicarGeo(globalIndex, pendingGeo.lat, pendingGeo.lng, 'adicionar');
+
+          ga.append(btnLimpar, btnAtualizar);
+          tdGeo.appendChild(ga);
+        }
+
+        tr.appendChild(tdGeo);
+      }
     });
 
     // coluna Plotar
@@ -381,31 +409,6 @@ function renderTable() {
     btnPlot.onclick = () => plotGeometry(globalIndex);
     tdPlot.appendChild(btnPlot);
     tr.appendChild(tdPlot);
-
-    // coluna Geo (antes da coluna Editar)
-    const tdGeo = document.createElement('td');
-    const btnGeo = document.createElement('button');
-    btnGeo.innerHTML = '<i class="fa fa-location-dot"></i> Geo';
-    btnGeo.onclick = () => geolocalizarRow(globalIndex);
-    tdGeo.appendChild(btnGeo);
-
-    // se houver pendingGeo, mostra ações extras
-    if (pendingGeo && pendingGeo.index === globalIndex) {
-      const ga = document.createElement('div');
-      ga.className = 'geo-actions';
-
-      const btnLimpar = document.createElement('button');
-      btnLimpar.innerHTML = '<i class="fa fa-trash"></i> Limpar';
-      btnLimpar.onclick = () => aplicarGeo(globalIndex, pendingGeo.lat, pendingGeo.lng, 'limpar');
-
-      const btnAtualizar = document.createElement('button');
-      btnAtualizar.innerHTML = '<i class="fa fa-rotate-right"></i> Atualizar';
-      btnAtualizar.onclick = () => aplicarGeo(globalIndex, pendingGeo.lat, pendingGeo.lng, 'adicionar');
-
-      ga.append(btnLimpar, btnAtualizar);
-      tdGeo.appendChild(ga);
-    }
-    tr.appendChild(tdGeo);
 
     // coluna Editar/Excluir
     const tdCrud = document.createElement('td');
@@ -436,11 +439,10 @@ function renderTable() {
     tdCrud.appendChild(actions);
     tr.appendChild(tdCrud);
 
-    // adiciona linha ao corpo da tabela
     body.appendChild(tr);
   }
 
-  // paginação
+  // paginação (mantida igual)
   const pagesDiv = document.getElementById('pages');
   pagesDiv.innerHTML = '';
   const totalPages2 = Math.max(1, Math.ceil(filtered.length / pageSize));
