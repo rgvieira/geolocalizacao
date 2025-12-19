@@ -98,9 +98,10 @@
         <button id="downloadBtn" disabled><i class="fa fa-download"></i> Download CSV</button>
       </div>
       <div style="text-align:right;">
-         <button id="geoBtn">Geo</button>
+       
         <button id="measureBtn"><i class="fa fa-ruler"></i> Medir</button>
       </div>
+      
     </div>
   </div>
 
@@ -157,6 +158,7 @@ const drawControl = new L.Control.Draw({
   edit: { featureGroup: drawnItems }
 });
 // Geolocalizacao
+/*
 document.getElementById("geoBtn").onclick = () => {
   document.getElementById("locStatus").textContent = "Obtendo posição...";
 
@@ -200,7 +202,7 @@ document.getElementById("geoBtn").onclick = () => {
     }
   );
 };
-
+*/ 
 
 // Plugin para medir distância
 let measureActive = false;
@@ -336,94 +338,126 @@ function renderHeader(){
   const thCrud=document.createElement('th'); thCrud.textContent='CRUD'; tr.appendChild(thCrud);
 }
 
-function renderTable(){
+function renderTable() {
   renderHeader();
-  const body=document.getElementById('tableBody'); body.innerHTML='';
-  const total=filtered.length;
-  const totalPages=Math.max(1, Math.ceil(total/pageSize));
-  page=Math.min(page, totalPages);
-  const start=(page-1)*pageSize;
-  const end=Math.min(start+pageSize, total);
+  const body = document.getElementById('tableBody');
+  body.innerHTML = '';
 
-  for(let i=start;i<end;i++){
-    const row=filtered[i];
-    const globalIndex=tabelaGeo.indexOf(row);
-    const tr=document.createElement('tr');
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  page = Math.min(page, totalPages);
+  const start = (page - 1) * pageSize;
+  const end = Math.min(start + pageSize, total);
 
-    const tdIdx=document.createElement('td'); tdIdx.textContent=i+1; tr.appendChild(tdIdx);
+  for (let i = start; i < end; i++) {
+    const row = filtered[i];
+    const globalIndex = tabelaGeo.indexOf(row);
+    const tr = document.createElement('tr');
 
-    CSV_COLUMNS.forEach(col=>{
-      const td=document.createElement('td');
-      if(editState.has(globalIndex)){
-        const input=document.createElement('input');
-        input.className='cell-input'; input.value=row[col]??'';
-        input.oninput=(e)=>{ tabelaGeo[globalIndex][col]=e.target.value; };
+    // índice da linha
+    const tdIdx = document.createElement('td');
+    tdIdx.textContent = i + 1;
+    tr.appendChild(tdIdx);
+
+    // colunas CSV
+    CSV_COLUMNS.forEach(col => {
+      const td = document.createElement('td');
+      if (editState.has(globalIndex)) {
+        const input = document.createElement('input');
+        input.className = 'cell-input';
+        input.value = row[col] ?? '';
+        input.oninput = (e) => { tabelaGeo[globalIndex][col] = e.target.value; };
         td.appendChild(input);
       } else {
-        td.textContent=row[col]??'';
+        td.textContent = row[col] ?? '';
       }
       tr.appendChild(td);
     });
 
-    const tdGeo=document.createElement('td');
-    const btnGeo=document.createElement('button');
+    // coluna Plotar
+    const tdPlot = document.createElement('td');
+    const btnPlot = document.createElement('button');
+    btnPlot.innerHTML = '<i class="fa fa-draw-polygon"></i> Plotar';
+    btnPlot.onclick = () => plotGeometry(globalIndex);
+    tdPlot.appendChild(btnPlot);
+    tr.appendChild(tdPlot);
 
+    // coluna Geo (antes da coluna Editar)
+    const tdGeo = document.createElement('td');
+    const btnGeo = document.createElement('button');
+    btnGeo.innerHTML = '<i class="fa fa-location-dot"></i> Geo';
+    btnGeo.onclick = () => geolocalizarRow(globalIndex);
+    tdGeo.appendChild(btnGeo);
 
-    if(pendingGeo && pendingGeo.index===globalIndex){
-      const ga=document.createElement('div'); ga.className='geo-actions';
-      const btnLimpar=document.createElement('button');
-      btnLimpar.innerHTML='<i class="fa fa-trash"></i> Limpar';
-      btnLimpar.onclick=()=>aplicarGeo(globalIndex, pendingGeo.lat, pendingGeo.lng, 'limpar');
-      const btnAtualizar=document.createElement('button');
-      btnAtualizar.innerHTML='<i class="fa fa-rotate-right"></i> Atualizar';
-      btnAtualizar.onclick=()=>aplicarGeo(globalIndex, pendingGeo.lat, pendingGeo.lng, 'adicionar');
+    // se houver pendingGeo, mostra ações extras
+    if (pendingGeo && pendingGeo.index === globalIndex) {
+      const ga = document.createElement('div');
+      ga.className = 'geo-actions';
+
+      const btnLimpar = document.createElement('button');
+      btnLimpar.innerHTML = '<i class="fa fa-trash"></i> Limpar';
+      btnLimpar.onclick = () => aplicarGeo(globalIndex, pendingGeo.lat, pendingGeo.lng, 'limpar');
+
+      const btnAtualizar = document.createElement('button');
+      btnAtualizar.innerHTML = '<i class="fa fa-rotate-right"></i> Atualizar';
+      btnAtualizar.onclick = () => aplicarGeo(globalIndex, pendingGeo.lat, pendingGeo.lng, 'adicionar');
+
       ga.append(btnLimpar, btnAtualizar);
       tdGeo.appendChild(ga);
     }
     tr.appendChild(tdGeo);
 
-    const tdPlot=document.createElement('td');
-    const btnPlot=document.createElement('button');
-    btnPlot.innerHTML='<i class="fa fa-draw-polygon"></i> Plotar';
-    btnPlot.onclick=()=>plotGeometry(globalIndex);
-    tdPlot.appendChild(btnPlot);
-    tr.appendChild(tdPlot);
+    // coluna Editar/Excluir
+    const tdCrud = document.createElement('td');
+    const actions = document.createElement('div');
+    actions.className = 'row-actions';
 
-    const tdCrud=document.createElement('td');
-    const actions=document.createElement('div'); actions.className='row-actions';
-    if(editState.has(globalIndex)){
-      const btnSave=document.createElement('button'); btnSave.innerHTML='<i class="fa fa-floppy-disk"></i> Salvar';
-      btnSave.onclick=()=>salvarRow(globalIndex);
-      const btnCancel=document.createElement('button'); btnCancel.innerHTML='<i class="fa fa-xmark"></i> Cancelar';
-      btnCancel.onclick=()=>cancelarEdicao(globalIndex);
+    if (editState.has(globalIndex)) {
+      const btnSave = document.createElement('button');
+      btnSave.innerHTML = '<i class="fa fa-floppy-disk"></i> Salvar';
+      btnSave.onclick = () => salvarRow(globalIndex);
+
+      const btnCancel = document.createElement('button');
+      btnCancel.innerHTML = '<i class="fa fa-xmark"></i> Cancelar';
+      btnCancel.onclick = () => cancelarEdicao(globalIndex);
+
       actions.append(btnSave, btnCancel);
     } else {
-      const btnEdit=document.createElement('button'); btnEdit.innerHTML='<i class="fa fa-pen"></i> Editar';
-      btnEdit.onclick=()=>editarRow(globalIndex);
-      const btnDel=document.createElement('button'); btnDel.innerHTML='<i class="fa fa-trash"></i> Excluir';
-      btnDel.onclick=()=>excluirRow(globalIndex);
+      const btnEdit = document.createElement('button');
+      btnEdit.innerHTML = '<i class="fa fa-pen"></i> Editar';
+      btnEdit.onclick = () => editarRow(globalIndex);
+
+      const btnDel = document.createElement('button');
+      btnDel.innerHTML = '<i class="fa fa-trash"></i> Excluir';
+      btnDel.onclick = () => excluirRow(globalIndex);
+
       actions.append(btnEdit, btnDel);
     }
     tdCrud.appendChild(actions);
     tr.appendChild(tdCrud);
 
+    // adiciona linha ao corpo da tabela
     body.appendChild(tr);
   }
 
-  // páginas numeradas + info
-  const pagesDiv=document.getElementById('pages'); pagesDiv.innerHTML='';
-  const totalPages2=Math.max(1, Math.ceil(filtered.length/pageSize));
-  const windowSize=7;
-  const startPage=Math.max(1, page - Math.floor(windowSize/2));
-  const endPage2=Math.min(totalPages2, startPage + windowSize - 1);
-  for(let p=startPage;p<=endPage2;p++){
-    const b=document.createElement('button');
-    b.className='page-btn' + (p===page?' active':'');
-    b.textContent=p;
-    b.onclick=()=>{ page=p; renderTable(); };
+  // paginação
+  const pagesDiv = document.getElementById('pages');
+  pagesDiv.innerHTML = '';
+  const totalPages2 = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const windowSize = 7;
+  const startPage = Math.max(1, page - Math.floor(windowSize / 2));
+  const endPage2 = Math.min(totalPages2, startPage + windowSize - 1);
+
+  for (let p = startPage; p <= endPage2; p++) {
+    const b = document.createElement('button');
+    b.className = 'page-btn' + (p === page ? ' active' : '');
+    b.textContent = p;
+    b.onclick = () => { page = p; renderTable(); };
     pagesDiv.appendChild(b);
   }
-  document.getElementById('pageInfo').textContent=`Mostrando ${start+1}–${end} de ${filtered.length}`;
+
+  document.getElementById('pageInfo').textContent =
+    `Mostrando ${start + 1}–${end} de ${filtered.length}`;
 }
 
 /* ======= Geolocalização com fallback ======= */
