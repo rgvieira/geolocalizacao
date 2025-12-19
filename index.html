@@ -474,6 +474,21 @@ navigator.geolocation.getCurrentPosition(
       .bindTooltip(`Precisão: ${pos.coords.accuracy} metros`, {
        direction: "top", offset: [0, -20], className: "polygon-label" })
       .openTooltip();
+      // 👉 Atualiza as colunas Latitude e Longitude da linha
+      // Se já houver valores, concatena com ponto e vírgula
+      const currentLat = tabelaGeo[globalIndex]["Latitude"] ?? "";
+      const currentLng = tabelaGeo[globalIndex]["Longitude"] ?? "";
+
+      tabelaGeo[globalIndex]["Latitude"] = currentLat
+        ? currentLat + ";" + lat
+        : lat;
+
+      tabelaGeo[globalIndex]["Longitude"] = currentLng
+        ? currentLng + ";" + lng
+        : lng;
+
+      // Re-renderiza a tabela para mostrar os novos valores
+      renderTable();
   },
   err => {
     let msg = "";
