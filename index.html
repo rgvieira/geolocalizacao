@@ -478,7 +478,7 @@ navigator.geolocation.getCurrentPosition(
       // Se já houver valores, concatena com ponto e vírgula
       const currentLat = tabelaGeo[globalIndex]["Latitude"] ?? "";
       const currentLng = tabelaGeo[globalIndex]["Longitude"] ?? "";
-
+console.log(1,currentLat,currentLat)
       tabelaGeo[globalIndex]["Latitude"] = currentLat
         ? currentLat + ";" + lat
         : lat;
@@ -486,7 +486,8 @@ navigator.geolocation.getCurrentPosition(
       tabelaGeo[globalIndex]["Longitude"] = currentLng
         ? currentLng + ";" + lng
         : lng;
-
+console.log(2,currentLat,currentLat)
+      document.getElementById('locStatus').textContent='';
       // Re-renderiza a tabela para mostrar os novos valores
       renderTable();
   },
