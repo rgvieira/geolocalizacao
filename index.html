@@ -122,44 +122,6 @@ const editState = new Set();
 let pendingGeo = null;
 const drawnLayers = [];
 
-navigator.geolocation.getCurrentPosition(
-  pos => {
-    // sucesso: centraliza no ponto
-    const coord = [pos.coords.latitude, pos.coords.longitude];
-    map.setView(coord, 17);
-    L.marker(coord, { icon: startIcon })
-      .addTo(map)
-      .bindTooltip("Você está aqui!", { direction: "top", offset: [0, -20], className: "polygon-label" })
-      .openTooltip();
-  },
-  err => {
-    let msg = "";
-    switch (err.code) {
-      case err.PERMISSION_DENIED:
-        msg = "⚠️ A localização está bloqueada. Clique no ícone de permissões do navegador e selecione 'Permitir'.";
-        break;
-      case err.POSITION_UNAVAILABLE:
-        msg = "❌ Não foi possível obter sua localização. Verifique se o GPS ou rede estão ativos.";
-        break;
-      case err.TIMEOUT:
-        msg = "⏳ O tempo para obter a localização expirou. Tente novamente.";
-        break;
-      default:
-        msg = "Erro desconhecido ao obter localização.";
-    }
-
-    // mostra mensagem na própria página
-    const statusDiv = document.getElementById("locStatus");
-    if (statusDiv) {
-      statusDiv.textContent = msg;
-      statusDiv.style.color = "darkred";
-      statusDiv.style.fontWeight = "bold";
-    } else {
-      alert(msg); // fallback se não houver div
-    }
-  }
-);
-
 
 /* ======= Mapa ======= */
 const map = L.map('map').setView([-20.3217, -40.3439], 15);
@@ -411,21 +373,38 @@ function renderTable(){
 /* ======= Geolocalização com fallback ======= */
 function geolocalizarRow(globalIndex){
   document.getElementById('locStatus').textContent='Obtendo posição...';
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(
-      pos=>{
-        const lat=pos.coords.latitude, lng=pos.coords.longitude;
-        posMarkerAndPending(globalIndex, lat, lng);
-      },
-      err=>{
-        document.getElementById('locStatus').textContent='Sem privilégio. Usando Leaflet...';
-        leafletLocate(globalIndex);
-      },
-      { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
-    );
-  } else {
-    leafletLocate(globalIndex);
+navigator.geolocation.getCurrentPosition(
+  pos => {
+    const coord = [pos.coords.latitude, pos.coords.longitude];
+    map.setView(coord, 17);
+    L.marker(coord, { icon: startIcon })
+      .addTo(map)
+      .bindTooltip("Você está aqui!", { direction: "top", offset: [0, -20], className: "polygon-label" })
+      .openTooltip();
+  },
+  err => {
+    let msg = "";
+    switch (err.code) {
+      case err.PERMISSION_DENIED:
+        msg = "⚠️ Permissão negada. Vá até as permissões do navegador e selecione 'Permitir sempre'.";
+        break;
+      case err.POSITION_UNAVAILABLE:
+        msg = "❌ Não foi possível obter sua localização. Verifique se o GPS ou rede estão ativos.";
+        break;
+      case err.TIMEOUT:
+        msg = "⏳ O tempo para obter a localização expirou. Tente novamente.";
+        break;
+      default:
+        msg = "Erro desconhecido ao obter localização.";
+    }
+    document.getElementById("locStatus").textContent = msg;
+  },
+  {
+    enableHighAccuracy: true, // força uso de GPS quando disponível
+    timeout: 10000,           // tempo máximo de espera (ms)
+    maximumAge: 0             // não usa cache, sempre tenta posição atual
   }
+);
 }
 
 function leafletLocate(globalIndex){
