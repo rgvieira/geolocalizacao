@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Painel Geo CSV</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Leaflet Draw (mensuração) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+  <!-- Ícones (Font Awesome) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <style>
+    :root {
+      --bg:#0f172a; --panel:#111827; --text:#f8fafc;
+      --accent:#14532d; --accent-border:#14532d;
+      --border:#334155; --muted:#cbd5e1; --blue:#2563eb;
+    }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui; }
+    header { padding:16px; background:var(--panel); border-bottom:1px solid var(--border); }
+    header h1 { margin:0; font-size:18px; }
+    .container { padding:16px; display:grid; gap:16px; }
+    .controls,.table-panel { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:12px; }
+    .controls-grid { display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr; gap:12px; align-items:center; }
+    button,input[type="text"],select {
+      background:var(--accent); border:1px solid var(--accent-border);
+      color:var(--text); padding:8px 12px; border-radius:6px; font-size:14px; cursor:pointer;
+    }
+    button:disabled{opacity:.6; cursor:not-allowed;}
+    select { max-width:72px; }
+    .map { height:320px; border-radius:8px; border:1px solid var(--border); }
+    #locStatus { font-size:12px; color:var(--muted); margin-top:6px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th,td { border-bottom:1px solid var(--border); padding:6px 8px; }
+    th { background:var(--panel); position:sticky; top:0; }
+    .row-actions { display:flex; gap:6px; }
+    .geo-actions { display:flex; gap:6px; margin-top:6px; }
+    .pagination { display:flex; justify-content:space-between; margin-top:8px; align-items:center;}
+    .pages { display:flex; gap:6px; flex-wrap:wrap; }
+    .page-btn { background:var(--accent); border:1px solid var(--accent-border); color:var(--text); padding:6px 10px; border-radius:6px; }
+    .page-btn.active { background:var(--blue); }
+    .search-box { display:flex; align-items:center; gap:6px; }
+    .search-box i { color:var(--muted); }
+    .footer-download { text-align:right; margin-top:10px; }
+    .polygon-label { font-size:12px; font-weight:bold; }
+    .cell-input { width:100%; background:#1f2937; color:var(--text); border:1px solid var(--border); border-radius:4px; padding:4px 6px; font-size:13px; }
+    .leaflet-tooltip.polygon-label {
+        background: transparent !important;   /* fundo transparente */
+        border: none !important;              /* remove borda */
+        color: darkred !important;            /* texto em darkred */
+        font-weight: bold;
+        box-shadow: none !important;          /* remove sombra */
+    }
+  </style>
+</head>
+<body>
+<header><h1>Painel Geo — CSV de Recintos e Equipamentos</h1></header>
+
+<div class="container">
+  <div class="controls">
+    <div class="controls-grid">
+      <div>
+        <button id="uploadBtn"><i class="fa fa-upload"></i> Upload CSV</button>
+        <input type="file" id="csvFile" accept=".csv" style="display:none;" />
+      </div>
+      <div class="search-box">
+        <i class="fa fa-search"></i>
+        <input type="text" id="search" placeholder="Buscar..." />
+      </div>
+      <div>
+        <select id="pageSize">
+          <option value="15" selected>15</option>
+          <option value="30">30</option>
+          <option value="60">60</option>
+          <option value="100">100</option>
+          <option value="500">500</option>
+        </select>
+      </div>
+      <div style="text-align:right;">
+        <button id="downloadBtn" disabled><i class="fa fa-download"></i> Download CSV</button>
+      </div>
+      <div style="text-align:right;">
+        <button id="measureBtn"><i class="fa fa-ruler"></i> Medir</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="map" class="map"></div>
+  <div id="locStatus">Mapa pronto. Use Geo para capturar coordenadas ou Plotar para desenhar no mapa.</div>
+
+  <div class="table-panel" id="tablePanel" style="display:none;">
+    <table id="dataTable">
+      <thead><tr id="tableHeader"></tr></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    <div class="pagination">
+      <div class="pages" id="pages"></div>
+      <div>
+        <button class="page-btn" id="firstPageBtn">« Primeiro</button>
+        <button class="page-btn" id="lastPageBtn">Último »</button>
+      </div>
+      <span id="pageInfo"></span>
+    </div>
+    <div class="footer-download">
+      <button id="downloadBtnFooter" disabled><i class="fa fa-download"></i> Download CSV</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ======= Estado ======= */
+const CSV_COLUMNS = ["Tipo","Equipamento","Ativo","Protocolo","Azimute","Latitude","Longitude"];
+const separador = ' - ';
+let tabelaGeo = [], filtered = [], page = 1, pageSize = 15;
+const editState = new Set();
+let pendingGeo = null;
+const drawnLayers = [];
+
+/* ======= Mapa ======= */
+const map = L.map('map').setView([-20.3217, -40.3439], 15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(map);
+
+const startIcon = L.icon({
+  iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png",
+  iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32]
+});
+
+/* ======= Mensuração (Leaflet.Draw) ======= */
+const drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
+
+const drawControl = new L.Control.Draw({
+  draw: {
+    polygon: false, rectangle: false, circle: false, marker: false, circlemarker: false,
+    polyline: { shapeOptions: { color: 'red', weight: 3 } }
+  },
+  edit: { featureGroup: drawnItems }
+});
+
+// Plugin para medir distância
+let measureActive = false;
+document.getElementById('measureBtn').onclick = () => {
+  if (!measureActive) {
+    measureActive = true;
+    document.getElementById('locStatus').textContent = 'Clique no mapa para marcar pontos da linha.';
+    map.getContainer().style.cursor = 'pointer'; // muda cursor para apontador
+
+    let tempLine = [];
+    map.on('click', onMeasureClick);
+
+    function onMeasureClick(e) {
+      tempLine.push(e.latlng);
+      if (tempLine.length > 1) {
+        const line = L.polyline(tempLine, { color: 'red' }).addTo(map);
+        let dist = 0;
+        for (let i = 0; i < tempLine.length - 1; i++) {
+          dist += tempLine[i].distanceTo(tempLine[i+1]);
+        }
+        line.bindPopup("Distância: " + dist.toFixed(2) + " m").openPopup();
+        tempLine = []; // reinicia para nova medição
+      }
+    }
+  } else {
+    measureActive = false;
+    document.getElementById('locStatus').textContent = 'Mensuração desativada.';
+    map.getContainer().style.cursor = ''; // volta cursor normal
+    map.off('click'); // remove evento
+  }
+};
+
+
+/* ======= Upload ======= */
+document.getElementById('uploadBtn').addEventListener('click', () => document.getElementById('csvFile').click());
+document.getElementById('csvFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const text = await file.text();
+  const rows = parseCSVFlexible(text);
+  if (rows.length === 0) { alert("Nenhuma linha válida encontrada."); return; }
+  tabelaGeo = rows; filtered = tabelaGeo.slice(); page = 1;
+  document.getElementById('tablePanel').style.display = "block";
+  document.getElementById('downloadBtn').disabled = false;
+  document.getElementById('downloadBtnFooter').disabled = false;
+  renderTable();
+});
+
+/* ======= Parser flexível ======= */
+function parseCSVFlexible(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim().length > 0);
+  if (lines.length === 0) return [];
+  const headerRaw = safeSplitCSVLine(lines[0]).map(h => h.trim());
+  const nameToIndex = new Map(); headerRaw.forEach((name, idx) => nameToIndex.set(name, idx));
+
+  let indices = CSV_COLUMNS.map(name => nameToIndex.has(name) ? nameToIndex.get(name) : -1);
+  const hasAll = indices.every(i => i >= 0);
+  if (!hasAll) indices = [0,1,2,3,4,5,6];
+
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = safeSplitCSVLine(lines[i]);
+    const obj = {};
+    CSV_COLUMNS.forEach((colName, j) => {
+      const srcIdx = indices[j];
+      obj[colName] = (srcIdx >= 0 && srcIdx < cols.length) ? (cols[srcIdx] ?? '').trim() : '';
+    });
+    const empty = CSV_COLUMNS.every(c => (obj[c] ?? '') === '');
+    if (!empty) rows.push(obj);
+  }
+  return rows;
+}
+
+function safeSplitCSVLine(line) {
+  const result = []; let cur = ''; let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i+1] === '"') { cur += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) { result.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  result.push(cur);
+  return result;
+}
+
+/* ======= Download ======= */
+function csvEscape(v){const s=String(v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+function toCSVWithCoordReplace(rows){
+  const header=CSV_COLUMNS.join(',');
+  const body=rows.map(r=>{
+    const out={}; CSV_COLUMNS.forEach(c=>out[c]=r[c]??'');
+    out["Latitude"]=String(out["Latitude"]).replaceAll(';', separador);
+    out["Longitude"]=String(out["Longitude"]).replaceAll(';', separador);
+    return CSV_COLUMNS.map(c=>csvEscape(out[c])).join(',');
+  }).join('\n');
+  return header+'\n'+body;
+}
+function download(){
+  const csv=toCSVWithCoordReplace(tabelaGeo);
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='tabelaGeo.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+document.getElementById('downloadBtn').onclick = download;
+document.getElementById('downloadBtnFooter').onclick = download;
+
+/* ======= Busca, paginação e navegação primeira/última ======= */
+document.getElementById('search').addEventListener('input', () => {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  filtered = !q ? tabelaGeo.slice()
+                : tabelaGeo.filter(row => Object.values(row).some(v => String(v).toLowerCase().includes(q)));
+  page = 1;
+  renderTable();
+});
+document.getElementById('pageSize').addEventListener('change', (e) => {
+  pageSize = parseInt(e.target.value, 10); page = 1; renderTable();
+});
+document.getElementById('firstPageBtn').addEventListener('click', () => { page = 1; renderTable(); });
+document.getElementById('lastPageBtn').addEventListener('click', () => {
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  page = totalPages; renderTable();
+});
+
+function renderHeader(){
+  const tr=document.getElementById('tableHeader'); tr.innerHTML='';
+  const thIdx=document.createElement('th'); thIdx.textContent='#'; tr.appendChild(thIdx);
+  CSV_COLUMNS.forEach(c=>{const th=document.createElement('th'); th.textContent=c; tr.appendChild(th);});
+  const thGeo=document.createElement('th'); thGeo.textContent='Geo'; tr.appendChild(thGeo);
+  const thPlot=document.createElement('th'); thPlot.textContent='Plotar'; tr.appendChild(thPlot);
+  const thCrud=document.createElement('th'); thCrud.textContent='CRUD'; tr.appendChild(thCrud);
+}
+
+function renderTable(){
+  renderHeader();
+  const body=document.getElementById('tableBody'); body.innerHTML='';
+  const total=filtered.length;
+  const totalPages=Math.max(1, Math.ceil(total/pageSize));
+  page=Math.min(page, totalPages);
+  const start=(page-1)*pageSize;
+  const end=Math.min(start+pageSize, total);
+
+  for(let i=start;i<end;i++){
+    const row=filtered[i];
+    const globalIndex=tabelaGeo.indexOf(row);
+    const tr=document.createElement('tr');
+
+    const tdIdx=document.createElement('td'); tdIdx.textContent=i+1; tr.appendChild(tdIdx);
+
+    CSV_COLUMNS.forEach(col=>{
+      const td=document.createElement('td');
+      if(editState.has(globalIndex)){
+        const input=document.createElement('input');
+        input.className='cell-input'; input.value=row[col]??'';
+        input.oninput=(e)=>{ tabelaGeo[globalIndex][col]=e.target.value; };
+        td.appendChild(input);
+      } else {
+        td.textContent=row[col]??'';
+      }
+      tr.appendChild(td);
+    });
+
+    const tdGeo=document.createElement('td');
+    const btnGeo=document.createElement('button');
+    btnGeo.innerHTML='<i class="fa fa-location-crosshairs"></i> Geo';
+    btnGeo.onclick=()=>geolocalizarRow(globalIndex);
+    tdGeo.appendChild(btnGeo);
+
+    if(pendingGeo && pendingGeo.index===globalIndex){
+      const ga=document.createElement('div'); ga.className='geo-actions';
+      const btnLimpar=document.createElement('button');
+      btnLimpar.innerHTML='<i class="fa fa-trash"></i> Limpar';
+      btnLimpar.onclick=()=>aplicarGeo(globalIndex, pendingGeo.lat, pendingGeo.lng, 'limpar');
+      const btnAtualizar=document.createElement('button');
+      btnAtualizar.innerHTML='<i class="fa fa-rotate-right"></i> Atualizar';
+      btnAtualizar.onclick=()=>aplicarGeo(globalIndex, pendingGeo.lat, pendingGeo.lng, 'adicionar');
+      ga.append(btnLimpar, btnAtualizar);
+      tdGeo.appendChild(ga);
+    }
+    tr.appendChild(tdGeo);
+
+    const tdPlot=document.createElement('td');
+    const btnPlot=document.createElement('button');
+    btnPlot.innerHTML='<i class="fa fa-draw-polygon"></i> Plotar';
+    btnPlot.onclick=()=>plotGeometry(globalIndex);
+    tdPlot.appendChild(btnPlot);
+    tr.appendChild(tdPlot);
+
+    const tdCrud=document.createElement('td');
+    const actions=document.createElement('div'); actions.className='row-actions';
+    if(editState.has(globalIndex)){
+      const btnSave=document.createElement('button'); btnSave.innerHTML='<i class="fa fa-floppy-disk"></i> Salvar';
+      btnSave.onclick=()=>salvarRow(globalIndex);
+      const btnCancel=document.createElement('button'); btnCancel.innerHTML='<i class="fa fa-xmark"></i> Cancelar';
+      btnCancel.onclick=()=>cancelarEdicao(globalIndex);
+      actions.append(btnSave, btnCancel);
+    } else {
+      const btnEdit=document.createElement('button'); btnEdit.innerHTML='<i class="fa fa-pen"></i> Editar';
+      btnEdit.onclick=()=>editarRow(globalIndex);
+      const btnDel=document.createElement('button'); btnDel.innerHTML='<i class="fa fa-trash"></i> Excluir';
+      btnDel.onclick=()=>excluirRow(globalIndex);
+      actions.append(btnEdit, btnDel);
+    }
+    tdCrud.appendChild(actions);
+    tr.appendChild(tdCrud);
+
+    body.appendChild(tr);
+  }
+
+  // páginas numeradas + info
+  const pagesDiv=document.getElementById('pages'); pagesDiv.innerHTML='';
+  const totalPages2=Math.max(1, Math.ceil(filtered.length/pageSize));
+  const windowSize=7;
+  const startPage=Math.max(1, page - Math.floor(windowSize/2));
+  const endPage2=Math.min(totalPages2, startPage + windowSize - 1);
+  for(let p=startPage;p<=endPage2;p++){
+    const b=document.createElement('button');
+    b.className='page-btn' + (p===page?' active':'');
+    b.textContent=p;
+    b.onclick=()=>{ page=p; renderTable(); };
+    pagesDiv.appendChild(b);
+  }
+  document.getElementById('pageInfo').textContent=`Mostrando ${start+1}–${end} de ${filtered.length}`;
+}
+
+/* ======= Geolocalização com fallback ======= */
+function geolocalizarRow(globalIndex){
+  document.getElementById('locStatus').textContent='Obtendo posição...';
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      pos=>{
+        const lat=pos.coords.latitude, lng=pos.coords.longitude;
+        posMarkerAndPending(globalIndex, lat, lng);
+      },
+      err=>{
+        document.getElementById('locStatus').textContent='Sem privilégio. Usando Leaflet...';
+        leafletLocate(globalIndex);
+      },
+      { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
+    );
+  } else {
+    leafletLocate(globalIndex);
+  }
+}
+
+function leafletLocate(globalIndex){
+  map.locate({ setView:false, maxZoom:19, enableHighAccuracy:true })
+    .on('locationfound', e=>{
+      const lat=e.latlng.lat, lng=e.latlng.lng;
+      posMarkerAndPending(globalIndex, lat, lng);
+      document.getElementById('locStatus').textContent=
+        `Posição via Leaflet: ${lat.toFixed(6)}, ${lng.toFixed(6)} (~${Math.round(e.accuracy)}m)`;
+    })
+    .on('locationerror', err=>{
+      document.getElementById('locStatus').textContent='Não foi possível obter a localização. Verifique permissões.';
+      alert('Não foi possível obter a localização. Verifique permissões do navegador ou tente novamente.');
+    });
+}
+
+function posMarkerAndPending(globalIndex, lat, lng){
+  const row=tabelaGeo[globalIndex];
+  const hasExisting=(row["Latitude"]??'') || (row["Longitude"]??'');
+  if(hasExisting){
+    pendingGeo={ index:globalIndex, lat, lng };
+  } else {
+    aplicarGeo(globalIndex, lat, lng, 'limpar');
+    pendingGeo=null;
+  }
+  renderTable();
+}
+
+function aplicarGeo(globalIndex, lat, lng, modo){
+  const row=tabelaGeo[globalIndex];
+  const existingLat=row["Latitude"]??'';
+  const existingLng=row["Longitude"]??'';
+  if(modo==='limpar'){
+    row["Latitude"]=String(lat);
+    row["Longitude"]=String(lng);
+  } else {
+    row["Latitude"]=mergeWithSep(existingLat, String(lat));
+    row["Longitude"]=mergeWithSep(existingLng, String(lng));
+  }
+  tabelaGeo[globalIndex]=row;
+  pendingGeo=null;
+  syncFilteredFromTabelaGeo();
+  renderTable();
+}
+function mergeWithSep(existing, add){
+  if(!existing) return add;
+  if(!add) return existing;
+  // sempre armazena internamente com ';' e mostra/exporta com separador
+  return existing + ';' + add;
+}
+
+/* ======= Plotagem (parseFloat antes de push) ======= */
+function plotGeometry(globalIndex) {
+  const row = tabelaGeo[globalIndex];
+
+  // limpa camadas anteriores
+  drawnLayers.forEach(l => map.removeLayer(l));
+  drawnLayers.length = 0;
+
+  // tenta separar usando separador configurável; se vazio, fallback para ';'
+  let latArr = String(row["Latitude"]).split(separador).map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+  let lngArr = String(row["Longitude"]).split(separador).map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+
+  if (latArr.length === 0 || lngArr.length === 0) {
+    latArr = String(row["Latitude"]).split(';').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+    lngArr = String(row["Longitude"]).split(';').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+  }
+
+  // se quantidade de lat != quantidade de lng, aborta
+  if (latArr.length !== lngArr.length) {
+    console.warn("Número de latitudes diferente de longitudes, não é possível plotar.");
+    return;
+  }
+
+  // decide tipo: polígono se o lowercase contém "polígono" (indexOf >= 0), senão ponto
+  const tipoLower = String(row["Tipo"] ?? "").toLowerCase();
+  const isPoligono = tipoLower.indexOf("polígono") >= 0;
+
+  if (isPoligono && latArr.length > 1) {
+    // desenha polígono
+    const coords = latArr.map((lat, i) => [parseFloat(lat), parseFloat(lngArr[i])]);
+    coords.push(coords[0]); // fecha polígono
+
+    const poly = L.polygon(coords, { color: "lime", weight: 2 })
+      .addTo(map)
+        .bindTooltip(
+        "<img src='https://cdn-icons-png.flaticon.com/512/15724/15724751.png' width='20' style='vertical-align:middle;margin-right:5px;'/>" +
+        "<strong>" + (row["Equipamento"] ?? "") + "</strong>",
+        { permanent:false, direction:"top", className:"polygon-label" }
+        )
+      .openTooltip();
+
+    drawnLayers.push(poly);
+
+    const startMarker = L.marker(coords[0], { icon: startIcon })
+      .bindTooltip(
+    "<strong>"+"Marco Zero" + "</strong>",
+    { 
+      permanent: false, 
+      direction: "top", 
+      offset: [0, -25],   // desloca 25px para cima
+      className: "polygon-label" 
+    }
+  )
+      .addTo(map);
+    drawnLayers.push(startMarker);
+
+    map.fitBounds(poly.getBounds());
+  } else if (latArr.length >= 1 && lngArr.length >= 1) {
+    // desenha ponto (Marco Zero)
+    const coord = [parseFloat(latArr[0]), parseFloat(lngArr[0])];
+    const point = L.marker(coord, { icon: startIcon })
+  .addTo(map)
+  .bindTooltip(
+    "<strong>" + (row["Equipamento"] ?? "Marco Zero") + "</strong>",
+    { 
+      permanent: false, 
+      direction: "top", 
+      offset: [0, -25],   // desloca 25px para cima
+      className: "polygon-label" 
+    }
+  )
+  .openTooltip();
+
+    point.addTo(map);
+    drawnLayers.push(point);
+    map.setView(coord, 17);
+  } else {
+    alert("Não há coordenadas válidas para plotar.");
+  }
+}
+
+
+/* ======= CRUD e utilitários ======= */
+function editarRow(globalIndex){ editState.add(globalIndex); renderTable(); }
+function cancelarEdicao(globalIndex){ editState.delete(globalIndex); syncFilteredFromTabelaGeo(); renderTable(); }
+function salvarRow(globalIndex){
+  const errs=validarRow(tabelaGeo[globalIndex]);
+  if(errs.length>0){ alert('Erros:\n- '+errs.join('\n- ')); return; }
+  editState.delete(globalIndex); syncFilteredFromTabelaGeo(); renderTable();
+}
+function excluirRow(globalIndex){
+  if(!confirm('Confirma excluir esta linha?')) return;
+  tabelaGeo.splice(globalIndex,1); syncFilteredFromTabelaGeo(); renderTable();
+}
+function validarRow(row){
+  const errs=[];
+  const ativo=(row["Ativo"]??"").trim().toLowerCase();
+  if(!(ativo==='true'||ativo==='false')) errs.push('Ativo deve ser "true" ou "false".');
+  return errs;
+}
+function syncFilteredFromTabelaGeo(){
+  const q=document.getElementById('search').value.trim().toLowerCase();
+  filtered = !q ? tabelaGeo.slice()
+                : tabelaGeo.filter(row => Object.values(row).some(v => String(v).toLowerCase().includes(q)));
+  const totalPages=Math.max(1, Math.ceil(filtered.length/pageSize));
+  if(page>totalPages) page=totalPages;
+}
+
+/* ======= Inicial ======= */
+renderTable();
+</script>
+</body>
+</html>
