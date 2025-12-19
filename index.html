@@ -130,8 +130,32 @@
 <script>
 /* ======= Estado ======= */
 const CSV_COLUMNS = ["Tipo","Equipamento","Ativo","Protocolo","Azimute","Latitude","Longitude"];
+// Inicializa tabelaGeo com uma linha padrão
+let tabelaGeo = [
+  {
+    Tipo: "Tipo (ponto) ou (polígono)",        // regra: deve terminar com (ponto) ou (polígono)
+    Equipamento: "Equipamento", // não pode ser vazio
+    Ativo: "true",                   // valor inicial
+    Protocolo: "",              // exemplo de protocolo
+    Azimute: "",                   // valor inicial
+    Latitude: "",            // exemplo válido
+    Longitude: ""            // exemplo válido
+  }
+];
+
+// Inicializa variáveis de controle
+let filtered = tabelaGeo.slice();  // já copia a linha inicial
+let page = 1;
+let pageSize = 15;
+
+
+// 👉 Ao carregar a página, mostra o painel e renderiza
+window.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("tablePanel").style.display = "block";
+  renderTable();
+});
 const separador = ' - ';
-let tabelaGeo = [], filtered = [], page = 1, pageSize = 15;
+
 const editState = new Set();
 let pendingGeo = null;
 const drawnLayers = [];
@@ -242,7 +266,7 @@ document.getElementById('csvFile').addEventListener('change', async (e) => {
   const file = e.target.files[0]; if (!file) return;
   const text = await file.text();
   const rows = parseCSVFlexible(text);
-  if (rows.length === 0) { alert("Nenhuma linha válida encontrada."); return; }
+  if (rows.length === 0) { mostrarAlerta("Nenhuma linha válida encontrada."); return; }
   tabelaGeo = rows; filtered = tabelaGeo.slice(); page = 1;
   document.getElementById('tablePanel').style.display = "block";
   document.getElementById('downloadBtn').disabled = false;
@@ -329,14 +353,57 @@ document.getElementById('lastPageBtn').addEventListener('click', () => {
   page = totalPages; renderTable();
 });
 
-function renderHeader(){
-  const tr=document.getElementById('tableHeader'); tr.innerHTML='';
-  const thIdx=document.createElement('th'); thIdx.textContent='#'; tr.appendChild(thIdx);
-  CSV_COLUMNS.forEach(c=>{const th=document.createElement('th'); th.textContent=c; tr.appendChild(th);});
- const thGeo=document.createElement('th'); thGeo.textContent='Geo'; tr.appendChild(thGeo);
-  const thPlot=document.createElement('th'); thPlot.textContent='Plotar'; tr.appendChild(thPlot);
-  const thCrud=document.createElement('th'); thCrud.textContent='CRUD'; tr.appendChild(thCrud);
+function renderHeader() {
+  const tr = document.getElementById('tableHeader');
+  tr.innerHTML = '';
+
+  // coluna índice
+  const thIdx = document.createElement('th');
+  thIdx.textContent = '#';
+  tr.appendChild(thIdx);
+
+  // colunas CSV
+  CSV_COLUMNS.forEach(c => {
+    const th = document.createElement('th');
+    th.textContent = c;
+    tr.appendChild(th);
+
+    // 👉 se a coluna atual for Longitude, adiciona logo depois a coluna Geo
+    if (c.toLowerCase() === "longitude") {
+      const thGeo = document.createElement('th');
+      thGeo.textContent = 'Geo';
+      tr.appendChild(thGeo);
+    }
+  });
+
+  // coluna Plotar
+  const thPlot = document.createElement('th');
+  thPlot.textContent = 'Plotar';
+  tr.appendChild(thPlot);
+
+  // coluna CRUD
+  const thCrud = document.createElement('th');
+  thCrud.textContent = 'CRUD';
+  tr.appendChild(thCrud);
+
+  // 👉 botão Nova Linha no cabeçalho
+  const thAdd = document.createElement('th');
+  const btnAdd = document.createElement('button');
+  btnAdd.innerHTML = '<i class="fa fa-plus"></i> Nova Linha';
+  btnAdd.onclick = () => {
+    const newRow = {};
+    CSV_COLUMNS.forEach(col => newRow[col] = "");
+    // campo Tipo já vem preenchido
+    newRow["Tipo"] = "ZZZZZ (ponto); (polígono)";
+    tabelaGeo.push(newRow);
+    filtered = tabelaGeo.slice();
+    page = Math.ceil(filtered.length / pageSize);
+    renderTable();
+  };
+  thAdd.appendChild(btnAdd);
+  tr.appendChild(thAdd);
 }
+
 
 function renderTable() {
   renderHeader();
@@ -373,7 +440,7 @@ function renderTable() {
       }
       tr.appendChild(td);
 
-      // 👉 Se a coluna atual for Longitude, adiciona a coluna Geo logo depois
+      // 👉 se a coluna atual for Longitude, adiciona a coluna Geo logo depois
       if (col.toLowerCase() === "longitude") {
         const tdGeo = document.createElement('td');
         const btnGeo = document.createElement('button');
@@ -381,7 +448,6 @@ function renderTable() {
         btnGeo.onclick = () => geolocalizarRow(globalIndex);
         tdGeo.appendChild(btnGeo);
 
-        // se houver pendingGeo, mostra ações extras
         if (pendingGeo && pendingGeo.index === globalIndex) {
           const ga = document.createElement('div');
           ga.className = 'geo-actions';
@@ -442,7 +508,7 @@ function renderTable() {
     body.appendChild(tr);
   }
 
-  // paginação (mantida igual)
+  // paginação
   const pagesDiv = document.getElementById('pages');
   pagesDiv.innerHTML = '';
   const totalPages2 = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -478,7 +544,7 @@ navigator.geolocation.getCurrentPosition(
       // Se já houver valores, concatena com ponto e vírgula
       const currentLat = tabelaGeo[globalIndex]["Latitude"] ?? "";
       const currentLng = tabelaGeo[globalIndex]["Longitude"] ?? "";
-console.log(1,currentLat,currentLat)
+
       tabelaGeo[globalIndex]["Latitude"] = currentLat
         ? currentLat + ";" + pos.coords.latitude
         : pos.coords.latitude;
@@ -486,7 +552,7 @@ console.log(1,currentLat,currentLat)
       tabelaGeo[globalIndex]["Longitude"] = currentLng
         ? currentLng + ";" + pos.coords.longitude
         : pos.coords.longitude;
-console.log(2,currentLat,currentLat)
+
       document.getElementById('locStatus').textContent='';
       // Re-renderiza a tabela para mostrar os novos valores
       renderTable();
@@ -526,7 +592,7 @@ function leafletLocate(globalIndex){
     })
     .on('locationerror', err=>{
       document.getElementById('locStatus').textContent='Não foi possível obter a localização. Verifique permissões.';
-      alert('Não foi possível obter a localização. Verifique permissões do navegador ou tente novamente.');
+      mostrarAlerta('Não foi possível obter a localização. Verifique permissões do navegador ou tente novamente.');
     });
 }
 
@@ -642,7 +708,7 @@ function plotGeometry(globalIndex) {
     drawnLayers.push(point);
     map.setView(coord, 17);
   } else {
-    alert("Não há coordenadas válidas para plotar.");
+    mostrarAlerta("Não há coordenadas válidas para plotar.");
   }
 }
 
@@ -652,19 +718,93 @@ function editarRow(globalIndex){ editState.add(globalIndex); renderTable(); }
 function cancelarEdicao(globalIndex){ editState.delete(globalIndex); syncFilteredFromTabelaGeo(); renderTable(); }
 function salvarRow(globalIndex){
   const errs=validarRow(tabelaGeo[globalIndex]);
-  if(errs.length>0){ alert('Erros:\n- '+errs.join('\n- ')); return; }
+  if(errs.length>0){ mostrarAlerta('Erros:\n- '+errs.join('\n- ')); return; }
   editState.delete(globalIndex); syncFilteredFromTabelaGeo(); renderTable();
 }
 function excluirRow(globalIndex){
   if(!confirm('Confirma excluir esta linha?')) return;
   tabelaGeo.splice(globalIndex,1); syncFilteredFromTabelaGeo(); renderTable();
 }
-function validarRow(row){
-  const errs=[];
-  const ativo=(row["Ativo"]??"").trim().toLowerCase();
-  if(!(ativo==='true'||ativo==='false')) errs.push('Ativo deve ser "true" ou "false".');
-  return errs;
+function validarRow(row) {
+  const equipamento = (row["Equipamento"] ?? "").trim();
+  const latitude = (row["Latitude"] ?? "").trim();
+  const longitude = (row["Longitude"] ?? "").trim();
+  const tipo = (row["Tipo"] ?? "").trim();
+  const ativo = (row["Ativo"] ?? "").trim().toLowerCase();
+
+  if (!equipamento) {
+    mostrarAlerta("'Equipamento' não pode ser vazio.");
+    return false;
+  }
+  if (!latitude) {
+    mostrarAlerta("'Latitude' não pode ser vazio.");
+    return false;
+  }
+  if (!longitude) {
+    mostrarAlerta("'Longitude' não pode ser vazio.");
+    return false;
+  }
+   if (!(tipo.endsWith("(ponto)") || tipo.endsWith("(polígono)"))) {
+    mostrarAlerta("'Tipo' deve terminar com '(ponto)' ou '(polígono)'.");
+    return false;
+  }
+    // Ativo deve ser true ou false
+  if (!(ativo === "true" || ativo === "false")) {
+    mostrarAlerta("'Ativo' deve ser 'true' ou 'false'.");
+    return false;
+  }
+  return true;
 }
+
+function mostrarAlerta(mensagem) {
+  // cria container overlay
+  const overlay = document.createElement('div');
+  overlay.style.position = 'fixed';
+  overlay.style.top = '0';
+  overlay.style.left = '0';
+  overlay.style.width = '100%';
+  overlay.style.height = '100%';
+  overlay.style.backgroundColor = 'rgba(0,0,0,0.3)'; // fundo transparente
+  overlay.style.display = 'flex';
+  overlay.style.alignItems = 'center';
+  overlay.style.justifyContent = 'center';
+  overlay.style.zIndex = '9999';
+
+  // cria caixa de alerta
+  const box = document.createElement('div');
+  box.style.backgroundColor = '#fff';
+  box.style.padding = '20px 30px';
+  box.style.borderRadius = '8px';
+  box.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+  box.style.display = 'flex';
+  box.style.alignItems = 'center';
+  box.style.gap = '10px';
+  box.style.color = 'darkred';
+  box.style.fontSize = '16px';
+  box.style.fontWeight = 'bold';
+
+  // ícone de alerta (usando Font Awesome ou emoji)
+  const icon = document.createElement('i');
+  icon.className = 'fa fa-exclamation-triangle'; // precisa do Font Awesome
+  icon.style.color = 'darkred';
+  icon.style.fontSize = '20px';
+
+  // texto da mensagem
+  const text = document.createElement('span');
+  text.textContent = mensagem;
+
+  // monta alerta
+  box.appendChild(icon);
+  box.appendChild(text);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  // remove após tempo razoável (ex.: 4 segundos)
+  setTimeout(() => {
+    overlay.remove();
+  }, 4000);
+}
+
 function syncFilteredFromTabelaGeo(){
   const q=document.getElementById('search').value.trim().toLowerCase();
   filtered = !q ? tabelaGeo.slice()
@@ -674,7 +814,7 @@ function syncFilteredFromTabelaGeo(){
 }
 
 /* ======= Inicial ======= */
-renderTable();
+//renderTable();
 </script>
 </body>
 </html>
