@@ -1,8 +1,5 @@
 [
-  {
-    "nome": "Base Cartográfica 250k (Nov/25)",
-    "arquivo": "bc250_2025-11-21"
-  },
+
   {
     "nome": "Municípios do ES (2024)",
     "arquivo": "ES_Municipios_2024"
@@ -19,4 +16,5 @@
     "nome": "Estado do Espírito Santo (UF)",
     "arquivo": "ES_UF_2024"
   }
+
 ]
