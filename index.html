@@ -200,12 +200,25 @@ const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {m
 // Definimos aqui no topo para que o baseMaps possa enxergá-la
 const mapaLocalVazio = L.tileLayer('', { attribution: 'IBGE / Local' });
 
+// Adicione isso logo no início das variáveis globais
+const CONFIG_MAPAS = {
+    "bc250_2025-11-21": 22, // Mapa muito detalhado
+    "ES_Municipios_2024": 18,
+    "ES_UF_2024": 15        // Mapa geral, não precisa de tanto zoom
+};
+
+
+
 // 2. INICIALIZAÇÃO DO MAPA
 const map = L.map('map', {
     layers: [sat], 
     zoomControl: false, 
     attributionControl: false
 }).setView([-20.32, -40.34], 14);
+
+
+map.setMaxZoom(limiteZoom);
+
 
 // 3. DEFINIÇÃO DAS CAMADAS PARA O BOTÃO
 let markersCluster = L.markerClusterGroup(); 
@@ -338,7 +351,19 @@ async function confirmarCarregamento() {
                 // Seu código da tabela/popup...
             }
         }).addTo(map);
+        
+        // A. Identificamos qual arquivo foi carregado (ajuste o 'id_do_select' para o seu)
+        const arquivoAtual = document.getElementById('id_do_select').value;
 
+        // B. Ajustamos o zoom máximo permitido
+        const maxZoomDefinido = CONFIG_MAPAS[arquivoAtual] || 18;
+        map.setMaxZoom(maxZoomDefinido);
+
+        // C. Zoom automático para enquadrar o mapa
+        map.flyToBounds(camada.getBounds(), {
+            padding: [30, 30],
+            duration: 1.5
+        });
         // Adiciona ao controle de camadas (Overlay)
         if (window.layerControl) {
             window.layerControl.addOverlay(camada, nomeExibicao);
