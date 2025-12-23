@@ -234,195 +234,184 @@ th { background: #020617; position: sticky; top: 0; z-index: 10; }
 </div>
 
 <script>
-let nomeArquivoOriginal = null, tabelaGeo = [], filtered = [], selectedIndex = null, camadasAtivas = {}, clickTimer = null;
-let inspectorAtivo = false;
-let ultimoPonto = null;
+    let nomeArquivoOriginal = null, tabelaGeo = [], filtered = [], selectedIndex = null, camadasAtivas = {}, clickTimer = null;
+    let inspectorAtivo = false;
+    let ultimoPonto = null;
 
 
-const COLS = ["Tipo", "Equipamento", "Ativo", "Protocolo", "Azimute", "Latitude", "Longitude"];
+    const COLS = ["Tipo", "Equipamento", "Ativo", "Protocolo", "Azimute", "Latitude", "Longitude"];
 
-// 1. DEFINIÇÃO DOS TILES (MAPAS)
-const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom: 22,
-    maxNativeZoom: 18});
-const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 22,
-    maxNativeZoom: 18});
-// Criamos as bases
-const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
-    maxZoom: 22,
-    subdomains:['mt0','mt1','mt2','mt3']
-});
+    // 1. DEFINIÇÃO DOS TILES (MAPAS)
+    const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom: 22,
+        maxNativeZoom: 18});
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 22,
+        maxNativeZoom: 18});
+    // Criamos as bases
+    const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+        maxZoom: 22,
+        subdomains:['mt0','mt1','mt2','mt3']
+    });
 
-const googleHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-    maxZoom: 22,
-    maxNativeZoom: 20, // O Google costuma ter fotos reais até o 20 em áreas urbanas
-    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-    attribution: 'Google Maps'
-});
+    const googleHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        maxZoom: 22,
+        maxNativeZoom: 20, // O Google costuma ter fotos reais até o 20 em áreas urbanas
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        attribution: 'Google Maps'
+    });
 
-const sentinel = L.tileLayer('https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg', {
-    maxZoom: 22,        // Permite que o utilizador use zoom alto
-    maxNativeZoom: 16,  // Avisa que as fotos reais só vão até ao 16 (estica a imagem após isso)
-    attribution: 'Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH'
-});
-// 3. CRIAÇÃO DA CAMADA VAZIA (O "gatilho" para o seletor)
-// Definimos aqui no topo para que o baseMaps possa enxergá-la
-const mapaLocalVazio = L.tileLayer('', { attribution: 'IBGE / Local' });
+    const sentinel = L.tileLayer('https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg', {
+        maxZoom: 22,        // Permite que o utilizador use zoom alto
+        maxNativeZoom: 16,  // Avisa que as fotos reais só vão até ao 16 (estica a imagem após isso)
+        attribution: 'Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH'
+    });
+    // 3. CRIAÇÃO DA CAMADA VAZIA (O "gatilho" para o seletor)
+    // Definimos aqui no topo para que o baseMaps possa enxergá-la
+    const mapaLocalVazio = L.tileLayer('', { attribution: 'IBGE / Local' });
 
-// Adicione isso logo no início das variáveis globais
-const CONFIG_MAPAS = {
+    // Adicione isso logo no início das variáveis globais
+    const CONFIG_MAPAS = {
 
-    "ES_Municipios_2024": 15,
-    "Regiões ES_RG_Imediatas_2024": 20,
-    "ES_RG_Intermediarias_2024" : 21, 
-    "ES_UF_2024": 17        // Mapa geral, não precisa de tanto zoom
-};
+        "ES_Municipios_2024": 15,
+        "Regiões ES_RG_Imediatas_2024": 20,
+        "ES_RG_Intermediarias_2024" : 21, 
+        "ES_UF_2024": 17        // Mapa geral, não precisa de tanto zoom
+    };
 
-    
+        
 
-// 2. INICIALIZAÇÃO DO MAPA
-const map = L.map('map', {
-    layers: [sat], 
-    zoomControl: false, 
-    attributionControl: false,
-    maxZoom: 22 // Adicionamos isso aqui! 
-}).setView([-20.32, -40.34], 14);
+    // 2. INICIALIZAÇÃO DO MAPA
+    const map = L.map('map', {
+        layers: [sat], 
+        zoomControl: false, 
+        attributionControl: false,
+        maxZoom: 22 // Adicionamos isso aqui! 
+    }).setView([-20.32, -40.34], 14);
 
-// 3. DEFINIÇÃO DAS CAMADAS PARA O BOTÃO
-let markersCluster = L.markerClusterGroup(); 
+    // 3. DEFINIÇÃO DAS CAMADAS PARA O BOTÃO
+    let markersCluster = L.markerClusterGroup(); 
 
-const baseMaps = { 
-    "Esri World Imagery": sat, // Sua camada original 
-    "Google Hybrid": googleHybrid,
-    "Sentinel-2 (OSM)": sentinel,
-    "Ruas": osm,
-    "Carregar Mapa Local": mapaLocalVazio // Opção que disparará o clique
-};
+    const baseMaps = { 
+        "Esri World Imagery": sat, // Sua camada original 
+        "Google Hybrid": googleHybrid,
+        "Sentinel-2 (OSM)": sentinel,
+        "Ruas": osm,
+        "Carregar Mapa Local": mapaLocalVazio // Opção que disparará o clique
+    };
 
-const overlayMaps = { "Agrupamento": markersCluster };
+    const overlayMaps = { "Agrupamento": markersCluster };
 
-map.addLayer(markersCluster);
+    map.addLayer(markersCluster);
 
-//Bo~tão  click no mapa
-let modoInspeçãoAtivo = false;
-const btnInspect = document.getElementById('inspectBtn');
+    //Bo~tão  click no mapa
+    let modoInspeçãoAtivo = false;
+    const btnInspect = document.getElementById('inspectBtn');
 
-btnInspect.onclick = () => {
-    modoInspeçãoAtivo = !modoInspeçãoAtivo;
-    
-    if (modoInspeçãoAtivo) {
-        // Força o Azul
-        btnInspect.style.setProperty('background', '#4285F4', 'important'); 
-        btnInspect.classList.add('btn-ativo');
-        mapaStatus.update("📍 Modo Inspeção: Clique no mapa para capturar coordenadas.");
-    } else {
-        limparStatus();
+        btnInspect.onclick = () => {
+        modoInspeçãoAtivo = !modoInspeçãoAtivo;
+        
+        if (modoInspeçãoAtivo) {
+            // Força o Azul
+            btnInspect.style.setProperty('background', '#4285F4', 'important'); 
+            btnInspect.classList.add('btn-ativo');
+            mapaStatus.update("📍 Modo Inspeção: Clique no mapa para capturar coordenadas.");
+        } else {
+            limparStatus();
+        }
+    };;
+
+    function limparStatus() {
+        // 1. Remove o marcador se ele existir (precisa ser declarado fora do click)
+        if (window.tempMarker) {
+            map.removeLayer(window.tempMarker);
+            window.tempMarker = null;
+        }
+
+        // 2. Limpa o texto do rodapé
+        if (window.mapaStatus) {
+            mapaStatus.update("");
+        }
+
+        // 3. Desativa a lógica
+        modoInspeçãoAtivo = false;
+
+        // 4. Força a cor original (ex: cinza ou transparente)
+        btnInspect.style.setProperty('background', 'var(--accent)', 'important');
+        btnInspect.classList.remove('btn-ativo');
     }
-};;
-/*
-function limparStatus() {
-    // 1. Remove o marcador temporário se ele existir
-    if (window.tempMarker && map.hasLayer(window.tempMarker)) {
-        map.removeLayer(window.tempMarker);
-    }
 
-    // 2. Esconde o rodapé (mapaStatus)
-    if (window.mapaStatus) {
+
+    // Evento de clique no mapa
+    // 1. Crie o grupo fora do evento de clique (no escopo global ou inicialização)
+    const grupoInspeção = L.layerGroup().addTo(map);
+    map.on('click', (e) => {
+        if (!modoInspeçãoAtivo) return;
+
+        const latStr = e.latlng.lat.toFixed(6);
+        const lonStr = e.latlng.lng.toFixed(6);
+
+        // Marcação visual temporária no local clicado
+        const tempMarker = L.marker(e.latlng).addTo(grupoInspeção)
+            .bindTooltip(`Lat: ${latStr}<br>Lon: ${lonStr}`, { permanent: true, direction: 'top' })
+            .openTooltip();
+
+        // Atualiza o rodapé com a pergunta (estilo geobtn)
+        mapaStatus.update(`
+            📍 Local selecionado. Adicionar ao formulário? 
+            <button id="inspectSim" style="background:#22c55e; color:white; border:none; padding:4px 12px; cursor:pointer; margin-left:10px; border-radius:4px;">Sim</button>
+            <button id="inspectNao" style="background:#ef4444; color:white; border:none; padding:4px 12px; cursor:pointer; margin-left:5px; border-radius:4px;">Não</button>
+        `);
+const btnSim = document.getElementById('inspectSim');
+const btnNao = document.getElementById('inspectNao');
+if (btnSim && btnNao) {
+    L.DomEvent.disableClickPropagation(btnSim);
+    L.DomEvent.disableClickPropagation(btnNao);
+}
+        // Lógica do botão SIM
+        btnSim.onclick = () => {
+            
+            const iL = document.getElementById('inp_Latitude');
+            const iO = document.getElementById('inp_Longitude');
+            
+            iL.value = iL.value ? iL.value + ' - ' + latStr : latStr;
+            iO.value = iO.value ? iO.value + ' - ' + lonStr : lonStr;
+            grupoInspeção.clearLayers();
+            finalizarInspeção(tempMarker);
+        };
+
+// Lógica do botão NÃO
+btnNao.onclick = () => {
+grupoInspeção.clearLayers();
+        mapaStatus.update(""); 
+       // limparStatus();
+};
+    });
+        
+    function finalizarInspeção(marker) {
+        if (map.hasLayer(marker)) map.removeLayer(marker);
+        modoInspeçãoAtivo = false;
+        btnInspect.style.background = '';
         mapaStatus.update(""); 
     }
 
-    // 3. Garante que o modo de inspeção seja desligado
-    modoInspeçãoAtivo = false;
 
-    // 4. Reseta a cor do botão para o padrão
-    if (btnInspect) {
-        btnInspect.style.background = 'var(--accent)';
-        btnInspect.classList.remove('btn-ativo');
-    }
-}
-*/
-function limparStatus() {
-    // 1. Remove o marcador se ele existir (precisa ser declarado fora do click)
-    if (window.tempMarker) {
-        map.removeLayer(window.tempMarker);
-        window.tempMarker = null;
-    }
+    // 2. Adiciona o controle normalmente
+    const layerControl = L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
 
-    // 2. Limpa o texto do rodapé
-    if (window.mapaStatus) {
-        mapaStatus.update("");
-    }
+    window.layerControl = layerControl;
 
-    // 3. Desativa a lógica
-    modoInspeçãoAtivo = false;
+    // Lógica de troca
+    const btnCursor = document.getElementById('toggleCursorBtn');
+    const mapaContainer = map.getContainer(); // Acessa a div do Leaflet
 
-    // 4. Força a cor original (ex: cinza ou transparente)
-    btnInspect.style.setProperty('background', 'var(--accent)', 'important');
-    btnInspect.classList.remove('btn-ativo');
-}
-
-
-// Evento de clique no mapa
-map.on('click', (e) => {
-    if (!modoInspeçãoAtivo) return;
-
-    const latStr = e.latlng.lat.toFixed(6);
-    const lonStr = e.latlng.lng.toFixed(6);
-
-    // Marcação visual temporária no local clicado
-    const tempMarker = L.marker(e.latlng).addTo(map)
-        .bindTooltip(`Lat: ${latStr}<br>Lon: ${lonStr}`, { permanent: true, direction: 'top' })
-        .openTooltip();
-
-    // Atualiza o rodapé com a pergunta (estilo geobtn)
-    mapaStatus.update(`
-        📍 Local selecionado. Adicionar ao formulário? 
-        <button id="inspectSim" style="background:#22c55e; color:white; border:none; padding:4px 12px; cursor:pointer; margin-left:10px; border-radius:4px;">Sim</button>
-        <button id="inspectNao" style="background:#ef4444; color:white; border:none; padding:4px 12px; cursor:pointer; margin-left:5px; border-radius:4px;">Não</button>
-    `);
-
-    // Lógica do botão SIM
-    document.getElementById('inspectSim').onclick = () => {
-        const iL = document.getElementById('inp_Latitude');
-        const iO = document.getElementById('inp_Longitude');
+    btnCursor.addEventListener('click', function() {
+        // Alterna a classe; se existir ela sai, se não existir ela entra
+        mapaContainer.classList.toggle('custom-arrow-cursor');
         
-        iL.value = iL.value ? iL.value + ' - ' + latStr : latStr;
-        iO.value = iO.value ? iO.value + ' - ' + lonStr : lonStr;
-        
-        finalizarInspeção(tempMarker);
-    };
-
-    // Lógica do botão NÃO
-    document.getElementById('inspectNao').onclick = () => {
-        finalizarInspeção(tempMarker);
-    };
-});
-
-function finalizarInspeção(marker) {
-    if (map.hasLayer(marker)) map.removeLayer(marker);
-    modoInspeçãoAtivo = false;
-    btnInspect.style.background = '';
-    mapaStatus.update(""); 
-}
-
-
-// 2. Adiciona o controle normalmente
-const layerControl = L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
-
-window.layerControl = layerControl;
-
-// Lógica de troca
-const btnCursor = document.getElementById('toggleCursorBtn');
-const mapaContainer = map.getContainer(); // Acessa a div do Leaflet
-
-btnCursor.addEventListener('click', function() {
-    // Alterna a classe; se existir ela sai, se não existir ela entra
-    mapaContainer.classList.toggle('custom-arrow-cursor');
-    
-    // Opcional: mudar a cor do botão para indicar que está ativo
-    this.style.background = mapaContainer.classList.contains('custom-arrow-cursor') 
-        ? 'var(--google-blue)' 
-        : 'var(--accent)';
-});
+        // Opcional: mudar a cor do botão para indicar que está ativo
+        this.style.background = mapaContainer.classList.contains('custom-arrow-cursor') 
+            ? 'var(--google-blue)' 
+            : 'var(--accent)';
+    });
 
     // Remove as classes anteriores para não dar conflito
     mapaContainer.classList.remove('cursor-seta', 'cursor-mao', 'cursor-mira', 'cursor-ajuda');
@@ -728,6 +717,7 @@ function startMeasure(mode) {
         }
     });
 }
+
 function clearMeasure() { map.off('click'); measureGroup.clearLayers(); mPoints = []; mShape = null; document.getElementById('mMenu').classList.remove('active'); }
 
 // DRAWER & GPS
