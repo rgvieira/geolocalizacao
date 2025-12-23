@@ -214,6 +214,9 @@ const baseMaps = {
     "Ruas": osm,
     "Carregar Mapa Local": mapaLocalVazio // Opção que disparará o clique
 };
+// 2. Adiciona o controle normalmente
+const layerControl = L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
+
 const overlayMaps = { "Agrupamento": markersCluster };
 // Função para garantir que os botões apareçam
 
@@ -434,45 +437,6 @@ async function confirmarCarregamento() {
     }
 }
 
-/*
-// 3. Monitora quando o usuário escolhe a opção "Carregar Mapa Local"
-map.on('baselayerchange', function(e) {
-    if (e.name === "Carregar Mapa Local") {
-        document.getElementById('localTileInput').click(); // Abre o seletor de arquivos
-    }
-});
-
-// 4. Processa os arquivos selecionados
-document.getElementById('localTileInput').onchange = function(e) {
-    const files = e.target.files;
-    if (files.length === 0) return;
-
-    // Criamos uma URL base temporária para os arquivos locais
-    // Nota: Isso funciona melhor se os arquivos estiverem em uma estrutura padrão
-    // Para tiles locais via browser, usamos um Blob URL ou um servidor local.
-    
-    // Como carregar pastas locais diretamente via browser é limitado por segurança, 
-    // a forma mais estável é usar um "TileLayer" customizado ou GeoJSON:
-    
-    alert("Pasta selecionada com " + files.length + " arquivos. Iniciando leitura...");
-    
-    // Exemplo: Se for um GeoJSON local selecionado:
-    const file = files[0];
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        try {
-            const geojson = JSON.parse(event.target.result);
-            const localLayer = L.geoJSON(geojson).addTo(map);
-            layerControl.addOverlay(localLayer, "Arquivo Local: " + file.name);
-            map.fitBounds(localLayer.getBounds());
-            mapaStatus.update("✅ Mapa local carregado: " + file.name);
-        } catch (err) {
-            alert("Erro ao ler GeoJSON local.");
-        }
-    };
-    reader.readAsText(file);
-};
-*/
 function activateFullscreen() {
     const el = document.documentElement;
     if (el.requestFullscreen) el.requestFullscreen();
