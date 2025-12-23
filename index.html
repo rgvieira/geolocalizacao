@@ -345,7 +345,7 @@ async function carregarZipDoServidor(nomeArquivo) {
         mapaStatus.update("⏳ Processando arquivo do IBGE...");
         
         // Faz a requisição do arquivo ZIP que está na pasta do seu servidor
-        const response = await fetch(`./mapas_ibge/${nomeArquivo}.zip`);
+        const response = await fetch(`./mapas/${nomeArquivo}.zip`);
         const buffer = await response.arrayBuffer();
         
         // A biblioteca shpjs extrai o ZIP e converte para GeoJSON automaticamente
@@ -405,7 +405,7 @@ async function confirmarCarregamento() {
 
     try {
         // Busca o arquivo na pasta 'mapas_ibge' dentro do seu servidor
-        const response = await fetch(`./mapas_ibge/${arquivo}.zip`);
+        const response = await fetch(`./${arquivo}.zip`);
         if (!response.ok) throw new Error("Arquivo não encontrado no servidor.");
         
         const buffer = await response.arrayBuffer();
