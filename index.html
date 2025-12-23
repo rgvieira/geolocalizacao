@@ -150,6 +150,7 @@ th { background: #020617; position: sticky; top: 0; z-index: 10; }
 </header>
 
 <div id="map"></div>
+
 <input type="file" id="localTileInput" webkitdirectory directory multiple hidden>
 <div class="table-wrapper">
   <table>
@@ -184,7 +185,9 @@ th { background: #020617; position: sticky; top: 0; z-index: 10; }
         <button onclick="document.getElementById('mapSelector').style.display='none'" style="flex:1; background:var(--darkred); color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">Cancelar</button>
     </div>
 </div>
-
+<select id="zipSelect" style="width:100%; height:36px; background:#020617; color:white; border:1px solid var(--border); border-radius:6px; margin-bottom:15px;">
+    <option value="">Carregando lista...</option>
+</select>
 <script>
 let nomeArquivoOriginal = null, tabelaGeo = [], filtered = [], selectedIndex = null, camadasAtivas = {}, clickTimer = null;
 const COLS = ["Tipo", "Equipamento", "Ativo", "Protocolo", "Azimute", "Latitude", "Longitude"];
@@ -213,6 +216,7 @@ const baseMaps = {
 };
 const overlayMaps = { "Agrupamento": markersCluster };
 // Função para garantir que os botões apareçam
+
 function initControls() {
     // 1. Zoom
     L.control.zoom({ position: 'topright' }).addTo(map);
@@ -251,6 +255,83 @@ function initControls() {
         }
     });
     map.addControl(new GPSCtrl());
+}
+
+// Função para carregar a lista de mapas do JSON
+async function carregarListaDeMapas() {
+    const select = document.getElementById('zipSelect');
+    try {
+        const response = await fetch('./lista.json');
+        if (!response.ok) throw new Error("Não foi possível carregar o lista.json");
+        
+        let mapas = await response.json();
+        
+        // Ordenar a lista pelo 'nome' de exibição
+        mapas.sort((a, b) => a.nome.localeCompare(b.nome));
+
+        // Limpa o select e adiciona a opção padrão
+        select.innerHTML = '<option value="">Selecione um mapa...</option>';
+        
+        mapas.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.arquivo; // O código usará isso para o fetch
+            opt.textContent = item.nome; // O usuário verá isso
+            select.appendChild(opt);
+        });
+
+    } catch (err) {
+        select.innerHTML = '<option value="">Erro ao carregar lista</option>';
+        console.error("Erro no JSON:", err);
+    }
+}
+
+// Inicia a carga assim que o mapa estiver pronto
+map.whenReady(carregarListaDeMapas);
+
+// Função de confirmação de carregamento (Ajustada)
+async function confirmarCarregamento() {
+    const nomeArquivo = document.getElementById('zipSelect').value;
+    const nomeExibicao = document.getElementById('zipSelect').options[document.getElementById('zipSelect').selectedIndex].text;
+    
+    if (!nomeArquivo) return;
+
+    document.getElementById('mapSelector').style.display = 'none';
+    mapaStatus.update(`⏳ Carregando ${nomeExibicao}...`);
+
+    try {
+        const response = await fetch(`./${nomeArquivo}.zip`);
+        if (!response.ok) throw new Error("Arquivo ZIP não encontrado no servidor.");
+        
+        const buffer = await response.arrayBuffer();
+        const geojson = await shp(buffer);
+
+        const camada = L.geoJSON(geojson, {
+            style: { color: "#1e40af", weight: 2, fillOpacity: 0.25 },
+            onEachFeature: (f, layer) => {
+                let tabela = "<table style='font-size:10px; border-collapse: collapse;'>";
+                for (let key in f.properties) {
+                    tabela += `<tr><td style='border:1px solid #333; padding:2px;'><b>${key}:</b></td><td style='border:1px solid #333; padding:2px;'>${f.properties[key]}</td></tr>`;
+                }
+                tabela += "</table>";
+                layer.bindPopup(`<div style="max-height:200px; overflow-y:auto;">${tabela}</div>`);
+            }
+        }).addTo(map);
+
+        // Adiciona ao controle de camadas (Overlay)
+        if (window.layerControl) {
+            window.layerControl.addOverlay(camada, nomeExibicao);
+        }
+        
+        map.fitBounds(camada.getBounds());
+        mapaStatus.update(`✅ ${nomeExibicao} carregado com sucesso.`);
+        
+        // Limpa a mensagem após 5 segundos
+        setTimeout(() => mapaStatus.update(""), 5000);
+
+    } catch (err) {
+        console.error(err);
+        mapaStatus.update(`❌ Erro ao carregar: ${nomeArquivo}`);
+    }
 }
 
 // Executa a criação dos botões após o mapa estar pronto
