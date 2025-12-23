@@ -167,10 +167,31 @@ document.getElementById('geoBtn').onclick = () => {
         maximumAge: 0             // Não aceita localização em cache
     };
     navigator.geolocation.getCurrentPosition(pos => {
+        //Preenche os campos do furmulário
         const lat = pos.coords.latitude.toFixed(6), lon = pos.coords.longitude.toFixed(6);
         const iL = document.getElementById('inp_Latitude'), iO = document.getElementById('inp_Longitude');
         iL.value = iL.value ? iL.value + ' - ' + lat : lat;
         iO.value = iO.value ? iO.value + ' - ' + lon : lon;
+// 1. Centraliza o mapa na posição do usuário
+        map.setView([lat, lon], 17);
+
+        // 2. Cria e abre o Popup no mapa
+        L.popup()
+            .setLatLng([lat, lon])
+            .setContent(`
+                <div style="text-align:center; font-family: sans-serif;">
+                    <b style="color: #14532d;">Sua Localização</b><br>
+                    <hr style="border:0; border-top:1px solid #eee; margin:5px 0">
+                    <b>Lat:</b> ${lat.toFixed(6)}<br>
+                    <b>Lon:</b> ${lon.toFixed(6)}<br>
+                    <small>Precisão: <b>${acc}m</b></small>
+                </div>
+            `)
+            .openOn(map);
+
+        // Centraliza o mapa na posição
+        map.setView([lat, lon], 16);
+
     }, erroGeo,options);
 };
 
