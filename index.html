@@ -172,19 +172,7 @@ th { background: #020617; position: sticky; top: 0; z-index: 10; }
   </form>
 </div>
 
-<div id="mapSelector" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--panel); border:1px solid var(--border); padding:20px; border-radius:12px; z-index:10002; width:300px; box-shadow:0 0 20px rgba(0,0,0,0.5);">
-    <h3 style="margin-top:0; font-size:16px;">Arquivos no Servidor</h3>
-    <select id="zipSelect" style="width:100%; height:36px; background:#020617; color:white; border:1px solid var(--border); border-radius:6px; margin-bottom:15px;">
-        <option value="">Selecione um arquivo...</option>
-        <option value="municipios_es">Municípios ES (IBGE)</option>
-        <option value="setores_censitarios">Setores Censitários</option>
-        <option value="limites_preservacao">Limites de Preservação</option>
-    </select>
-    <div style="display:flex; gap:10px;">
-        <button onclick="confirmarCarregamento()" style="flex:1; background:var(--accent); color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">Carregar</button>
-        <button onclick="document.getElementById('mapSelector').style.display='none'" style="flex:1; background:var(--darkred); color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">Cancelar</button>
-    </div>
-</div>
+
 <select id="zipSelect" style="width:100%; height:36px; background:#020617; color:white; border:1px solid var(--border); border-radius:6px; margin-bottom:15px;">
     <option value="">Carregando lista...</option>
 </select>
@@ -354,7 +342,7 @@ async function confirmarCarregamento() {
         }).addTo(map);
 
         // A. Identificamos qual arquivo foi carregado (ajuste o 'id_do_select' para o seu)
-        const arquivoAtual = document.getElementById('id_do_select').value;
+        const arquivoAtual = document.getElementById('zipSelect').value;
 
         // B. Ajustamos o zoom máximo permitido
         const maxZoomDefinido = CONFIG_MAPAS[arquivoAtual] || 18;
