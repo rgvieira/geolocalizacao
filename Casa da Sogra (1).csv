@@ -1,0 +1,4 @@
+﻿Tipo,Equipamento,Ativo,Protocolo,Azimute,Latitude,Longitude
+"Ponto","Portão","true","","","-20.337427","-40.397792"
+"Polígono","Terreno","true","","","-20.337126 - -20.337352 - -20.337444 - -20.337266","-40.397992 - -40.398098 - -40.397835 - -40.397884"
+"Linha","NovoEscada","true","","","-20.337459 - -20.337450","-40.397849 - -40.397857"

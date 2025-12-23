@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Mapas do IBGE e fontes gratuitas — Leaflet</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: 64vh; }
+    .controls { padding: 12px; background: #f7f7f7; border-top: 1px solid #ddd; }
+    .row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+    button { padding: 8px 12px; cursor: pointer; }
+    input[type="file"] { padding: 6px; }
+    .hint { font-size: 12px; color: #555; }
+    table { border-collapse: collapse; width: 100%; margin-top: 12px; display: none; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #eee; }
+  </style>
+</head>
+<body>
+  <h2 style="margin:12px">Mapa IBGE integrado ao Leaflet</h2>
+  <div id="map"></div>
+
+  <div class="controls">
+    <div class="row">
+      <div>
+        <strong>📂 Carregar arquivo de mapa</strong><br />
+        <input id="mapFile" type="file" accept=".geojson,.json,.zip" />
+        <div class="hint">Aceita .geojson, .json ou .zip contendo .shp + .dbf + .prj (Shapefile).</div>
+        <button id="addLayerBtn">Adicionar camada</button>
+        <button id="clearLayersBtn">Remover camadas</button>
+      </div>
+      <div>
+        <strong>🗺️ Camada base</strong><br />
+        <button id="baseOsmBtn">OSM</button>
+        <button id="baseEsriBtn">ESRI Satellite</button>
+      </div>
+      <div>
+        <strong>📑 Tabela de fontes</strong><br />
+        <button id="toggleTableBtn">Mostrar/Esconder tabela</button>
+      </div>
+    </div>
+
+    <table id="mapTable">
+      <thead>
+        <tr>
+          <th>Fonte</th>
+          <th>Tipo de mapa/dado</th>
+          <th>Descrição</th>
+          <th>Link</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- IBGE — próximos de satélite -->
+        <tr><td>IBGE</td><td>Cartas Imagem</td><td>Imagens orbitais e aéreas georreferenciadas (semelhantes a satélite)</td><td><a href="https://www.ibge.gov.br/geociencias/downloads-geociencias.html" target="_blank">Baixar</a></td></tr>
+        <tr><td>IBGE</td><td>Modelos Digitais de Superfície (MDS/MDT)</td><td>Altimetria e relevo 3D derivado de sensores</td><td><a href="https://www.ibge.gov.br/geociencias/downloads-geociencias.html" target="_blank">Baixar</a></td></tr>
+        <!-- IBGE — bases oficiais vetoriais -->
+        <tr><td>IBGE</td><td>Base Cartográfica Contínua (BC250/BC1000)</td><td>Vetorial oficial em escalas 1:250.000 e 1:1.000.000</td><td><a href="https://www.ibge.gov.br/geociencias/cartas-e-mapas/bases-cartograficas-continuas/15759-brasil.html" target="_blank">Baixar</a></td></tr>
+        <tr><td>IBGE</td><td>Malhas Territoriais</td><td>Limites oficiais de municípios, estados e setores censitários</td><td><a href="https://www.ibge.gov.br/geociencias/organizacao-do-territorio/malhas-territoriais.html" target="_blank">Baixar</a></td></tr>
+        <tr><td>IBGE</td><td>Biomas</td><td>Delimitação dos biomas brasileiros</td><td><a href="https://www.ibge.gov.br/geociencias/informacoes-ambientais/15842-biomas.html" target="_blank">Baixar</a></td></tr>
+        <tr><td>IBGE</td><td>Cartas Topográficas</td><td>Topografia em várias escalas</td><td><a href="https://www.ibge.gov.br/geociencias/downloads-geociencias.html" target="_blank">Baixar</a></td></tr>
+        <tr><td>IBGE</td><td>Nomes Geográficos</td><td>Banco de nomes oficiais de localidades e feições naturais</td><td><a href="https://www.ibge.gov.br/geociencias/downloads-geociencias.html" target="_blank">Acessar</a></td></tr>
+        <!-- Outras fontes nacionais -->
+        <tr><td>INDE</td><td>Catálogo Nacional</td><td>Dados geoespaciais de diversos órgãos públicos</td><td><a href="https://inde.gov.br/" target="_blank">Acessar</a></td></tr>
+        <tr><td>INPE</td><td>Imagens de satélite (CBERS/Amazônia-1)</td><td>Catálogo de imagens orbitais brasileiras</td><td><a href="http://www.inpe.br/" target="_blank">Acessar</a></td></tr>
+        <tr><td>MapBiomas</td><td>Uso e cobertura da terra</td><td>Séries anuais de vegetação e uso do solo</td><td><a href="https://mapbiomas.org/" target="_blank">Acessar</a></td></tr>
+        <!-- Globais/urbanos -->
+        <tr><td>OpenStreetMap</td><td>Mapa colaborativo</td><td>Dados vetoriais urbanos</td><td><a href="https://www.openstreetmap.org/" target="_blank">Acessar</a></td></tr>
+        <tr><td>GeoSampa</td><td>Mapas urbanos (São Paulo)</td><td>Zoneamento e infraestrutura da capital</td><td><a href="http://geosampa.prefeitura.sp.gov.br/" target="_blank">Acessar</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- shpjs para converter Shapefile (ZIP) em GeoJSON -->
+  <script src="https://unpkg.com/shpjs@latest/dist/shp.min.js"></script>
+
+  <script>
+    // Inicialização do mapa e bases
+    const map = L.map('map');
+    const baseOSM = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+    });
+    const baseESRI = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19, attribution: 'Tiles &copy; ESRI'
+    });
+
+    baseOSM.addTo(map);
+    map.setView([-14.2350, -51.9253], 4);
+
+    // Grupo para sobreposições (camadas carregadas)
+    const overlayGroup = L.layerGroup().addTo(map);
+
+    // Troca de bases sem afetar overlayGroup
+    document.getElementById('baseOsmBtn').addEventListener('click', () => {
+      map.removeLayer(baseESRI);
+      baseOSM.addTo(map);
+    });
+    document.getElementById('baseEsriBtn').addEventListener('click', () => {
+      map.removeLayer(baseOSM);
+      baseESRI.addTo(map);
+    });
+
+    // Carregar arquivo (GeoJSON/JSON/ZIP Shapefile)
+    document.getElementById('addLayerBtn').addEventListener('click', async () => {
+      const fileInput = document.getElementById('mapFile');
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) { alert('Selecione um arquivo .geojson, .json ou .zip (Shapefile).'); return; }
+
+      const name = file.name.toLowerCase();
+      try {
+        if (name.endsWith('.geojson') || name.endsWith('.json')) {
+          const text = await file.text();
+          const geojson = JSON.parse(text);
+          addGeoJsonToMap(geojson);
+        } else if (name.endsWith('.zip')) {
+          const buf = await file.arrayBuffer();
+          const geojson = await shp(buf); // converte Shapefile ZIP -> GeoJSON
+          addGeoJsonToMap(geojson);
+        } else {
+          alert('Formato inválido. Use .geojson, .json ou .zip contendo shapefile (.shp/.dbf/.prj).');
+        }
+      } catch (err) {
+        console.error('Erro ao carregar arquivo:', err);
+        alert('Erro ao carregar arquivo: ' + (err?.message || err));
+      }
+    });
+
+    // Remover todas as camadas carregadas
+    document.getElementById('clearLayersBtn').addEventListener('click', () => {
+      overlayGroup.clearLayers();
+    });
+
+    // Mostrar/Esconder tabela de fontes
+    document.getElementById('toggleTableBtn').addEventListener('click', () => {
+      const table = document.getElementById('mapTable');
+      table.style.display = table.style.display === 'none' ? 'table' : 'none';
+    });
+
+    // Adiciona GeoJSON ao mapa (shpjs pode retornar múltiplas coleções)
+    function addGeoJsonToMap(geojson) {
+      const collections = normalizeCollections(geojson);
+      let bounds;
+
+      collections.forEach(fc => {
+        const layer = L.geoJSON(fc, {
+          style: defaultStyle,
+          onEachFeature: attachPopup
+        }).addTo(overlayGroup);
+
+        const lb = layer.getBounds();
+        if (lb.isValid()) bounds = bounds ? bounds.extend(lb) : lb;
+      });
+
+      if (bounds && bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20] });
+      else alert('Camada adicionada, mas não foi possível ajustar a extensão.');
+    }
+
+    // Normaliza saída em um array de FeatureCollection
+    function normalizeCollections(geojson) {
+      if (!geojson) return [];
+      if (geojson.type === 'FeatureCollection') return [geojson];
+      const arr = [];
+      if (typeof geojson === 'object') {
+        Object.keys(geojson).forEach(k => {
+          const v = geojson[k];
+          if (v && v.type === 'FeatureCollection') arr.push(v);
+        });
+      }
+      return arr.length ? arr : [];
+    }
+
+    // Estilo padrão
+    function defaultStyle() {
+      return { color: '#1E88E5', weight: 1, fillOpacity: 0.1 };
+    }
+
+    // Popup de propriedades
+    function attachPopup(feature, layer) {
+      const props = feature?.properties || {};
+      const keys = Object.keys(props);
+      if (!keys.length) return;
+      const html = keys.slice(0, 12).map(k => `<b>${k}:</b> ${props[k]}`).join('<br>');
+      layer.bindPopup(html);
+    }
+
+    // Geolocalização atual: adiciona marcador e zoom máximo ao clicar
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+
+          const marker = L.marker([lat, lon]).addTo(map);
+          marker.bindPopup("📍 Sua localização atual<br>Clique para zoom máximo");
+
+          // Opcional: círculo de precisão (accuracy)
+          const acc = pos.coords.accuracy; // em metros
+          if (acc && isFinite(acc)) {
+            L.circle([lat, lon], { radius: acc, color: '#FF5722', weight: 1, fillOpacity: 0.1 }).addTo(map);
+          }
+
+          marker.on('click', () => {
+            map.setView([lat, lon], map.getMaxZoom());
+          });
+        },
+        err => {
+          console.error("Erro ao obter localização:", err);
+          // Não interrompe outras funções; apenas informa o usuário
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+  </script>
+</body>
+</html>

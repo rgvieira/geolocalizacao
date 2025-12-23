@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>IBGE + Leaflet — Carregar GeoJSON/JSON/Shapefile (ZIP)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: 68vh; }
+    .controls { padding: 12px; background: #f7f7f7; border-top: 1px solid #ddd; }
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .row > * { margin: 6px 0; }
+    input[type="file"] { padding: 6px; }
+    button { padding: 8px 12px; cursor: pointer; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; display: none; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background: #eee; }
+    .hint { font-size: 12px; color: #555; }
+  </style>
+</head>
+<body>
+  <h2 style="margin:12px">Mapa IBGE integrado ao Leaflet</h2>
+  <div id="map"></div>
+
+  <div class="controls">
+    <div class="row">
+      <div>
+        <div><strong>Escolher arquivo de mapa</strong></div>
+        <!-- Aceita GeoJSON/JSON e Shapefile compactado em ZIP -->
+        <input id="mapFile" type="file" accept=".geojson,.json,.zip" />
+        <div class="hint">Aceita .geojson, .json ou .zip contendo .shp + .dbf + .prj</div>
+      </div>
+      <div>
+        <button id="addLayerBtn">Adicionar camada</button>
+        <button id="clearLayersBtn">Remover camadas</button>
+      </div>
+      <div>
+        <button id="toggleTableBtn">Mostrar/Esconder tabela de downloads</button>
+      </div>
+    </div>
+
+    <table id="mapTable">
+      <thead>
+        <tr>
+          <th>Nome do mapa</th>
+          <th>Denominação</th>
+          <th>Link para download</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Malha Municipal</td>
+          <td>Divisão político-administrativa vigente</td>
+          <td><a href="https://www.ibge.gov.br/geociencias/organizacao-do-territorio/malhas-territoriais/15774-malhas.html" target="_blank">Baixar</a></td>
+        </tr>
+        <tr>
+          <td>Malha de Estados</td>
+          <td>Limites estaduais do Brasil</td>
+          <td><a href="https://www.ibge.gov.br/geociencias/organizacao-do-territorio/malhas-territoriais.html" target="_blank">Baixar</a></td>
+        </tr>
+        <tr>
+          <td>Biomas</td>
+          <td>Delimitação dos biomas brasileiros</td>
+          <td><a href="https://www.ibge.gov.br/geociencias/informacoes-ambientais/15842-biomas.html" target="_blank">Baixar</a></td>
+        </tr>
+        <tr>
+          <td>Base de Faces de Logradouros</td>
+          <td>Faces de quadra e logradouros para mapeamento urbano</td>
+          <td><a href="https://downloads.ibge.gov.br/geociencias/malhas_territoriais/base_faces_logradouros/" target="_blank">Baixar</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- shpjs para converter Shapefile (ZIP) em GeoJSON no navegador -->
+  <script src="https://unpkg.com/shpjs@latest/dist/shp.min.js"></script>
+
+  <script>
+    // Inicializa mapa
+    const map = L.map('map').setView([-14.2350, -51.9253], 4);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Grupo para sobreposições
+    const overlayGroup = L.layerGroup().addTo(map);
+
+    // Adicionar camada a partir de arquivo
+    document.getElementById('addLayerBtn').addEventListener('click', async () => {
+      const fileInput = document.getElementById('mapFile');
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) {
+        alert('Selecione um arquivo .geojson, .json ou .zip com shapefile.');
+        return;
+      }
+
+      const fileName = file.name.toLowerCase();
+
+      try {
+        if (fileName.endsWith('.geojson') || fileName.endsWith('.json')) {
+          const text = await file.text();
+          const geojson = JSON.parse(text);
+          addGeoJsonLayer(geojson);
+        } else if (fileName.endsWith('.zip')) {
+          // Lê ZIP e converte shapefile => GeoJSON
+          const arrayBuffer = await file.arrayBuffer();
+          console.log('Lendo shapefile ZIP...');
+          const geojson = await shp(arrayBuffer);
+          console.log('GeoJSON convertido:', geojson);
+          addGeoJsonLayer(geojson);
+        } else {
+          alert('Formato inválido. Use .geojson, .json ou .zip contendo shapefile.');
+        }
+      } catch (err) {
+        console.error('Erro ao carregar:', err);
+        alert('Erro ao carregar arquivo: ' + (err && err.message ? err.message : err));
+      }
+    });
+
+    // Remover todas as camadas carregadas
+    document.getElementById('clearLayersBtn').addEventListener('click', () => {
+      overlayGroup.clearLayers();
+    });
+
+    // Mostrar/Esconder tabela
+    document.getElementById('toggleTableBtn').addEventListener('click', () => {
+      const table = document.getElementById('mapTable');
+      table.style.display = table.style.display === 'none' ? 'table' : 'none';
+    });
+
+    // Adiciona GeoJSON ao mapa com estilo e popup
+    function addGeoJsonLayer(geojson) {
+      // shpjs pode retornar FeatureCollection ou um objeto com múltiplas camadas
+      const collections = normalizeToCollections(geojson);
+      let bounds;
+
+      collections.forEach(fc => {
+        const layer = L.geoJSON(fc, {
+          style: defaultStyle,
+          onEachFeature: bindPopupFromProps
+        }).addTo(overlayGroup);
+        const lb = layer.getBounds();
+        if (lb.isValid()) {
+          bounds = bounds ? bounds.extend(lb) : lb;
+        }
+      });
+
+      if (bounds && bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [20, 20] });
+      } else {
+        alert('Camada carregada, mas não foi possível determinar a extensão.');
+      }
+    }
+
+    // Normaliza saída em um array de FeatureCollection
+    function normalizeToCollections(geojson) {
+      if (!geojson) return [];
+      // Caso seja um único FeatureCollection
+      if (geojson.type === 'FeatureCollection') return [geojson];
+      // Caso shpjs retorne objeto com várias camadas { layerName: FeatureCollection, ... }
+      const arr = [];
+      if (typeof geojson === 'object') {
+        Object.keys(geojson).forEach(k => {
+          const v = geojson[k];
+          if (v && v.type === 'FeatureCollection') arr.push(v);
+        });
+      }
+      return arr.length ? arr : [];
+    }
+
+    // Estilo padrão
+    function defaultStyle() {
+      return { color: '#1E88E5', weight: 1, fillOpacity: 0.1 };
+    }
+
+    // Popup com primeiras propriedades
+    function bindPopupFromProps(feature, layer) {
+      const props = feature && feature.properties ? feature.properties : {};
+      const keys = Object.keys(props);
+      if (!keys.length) return;
+      const content = keys.slice(0, 12).map(k => `<b>${k}:</b> ${props[k]}`).join('<br>');
+      layer.bindPopup(content);
+    }
+  </script>
+</body>
+</html>
