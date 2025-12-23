@@ -78,8 +78,7 @@ header { background: var(--panel); border-bottom: 1px solid var(--border); flex-
 .leaflet-control-zoom a,
 .leaflet-control-layers-toggle,
 .leaflet-pm-toolbar button,
-.leaflet-buttons-control-button,
-#geoBtn {
+.leaflet-buttons-control-button {
     width: 34px !important;
     height: 34px !important;
     background-color: #1a1a1a !important;
@@ -92,7 +91,22 @@ header { background: var(--panel); border-bottom: 1px solid var(--border); flex-
     box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
     text-decoration: none !important;
 }
+/* Unifica o estilo dos botões de ação com o padrão do addBtn */
+#geoBtn, #googleMapsBtn, .drawer-actions button {
+    background: var(--accent) !important;
+    color: #fff !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important; /* Mantém o padrão arredondado dos seus controles */
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: filter 0.2s;
+}
 
+#geoBtn:hover, #googleMapsBtn:hover, .drawer-actions button:hover {
+    filter: brightness(1.2);
+}
 /* Ajuste específico para o ícone de camadas (que costuma sumir) */
 .leaflet-control-layers-toggle {
     background-image: none !important;
@@ -129,6 +143,31 @@ th { background: #020617; position: sticky; top: 0; z-index: 10; }
 .drawer-actions { display: flex; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
 .drawer-actions button { flex: 1; min-width: 40px; height: 40px; border-radius: 8px; border: none; background: var(--accent); color: white; cursor: pointer; }
 
+/* Classe que define o cursor personalizado */
+.custom-arrow-cursor {
+    /* Cursor customizado: 64px de altura para um corpo longo */
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="64" viewBox="0 0 32 64"><path d="M2,2 L10,50 L14,35 L26,35 Z" fill="black" stroke="white" stroke-width="1.5"/></svg>') 2 2, auto !important;
+}
+
+/* Estilo para o botão seguir o padrão do seu sistema */
+.btn-cursor {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+/* Cor azul padrão para botões ativos (ajuste o hexadecimal se necessário) */
+
+.btn-ativo {
+    background-color: #007bff !important; /* Azul Google */
+    color: white !important;
+}
 </style>
 </head>
 <body>
@@ -141,6 +180,9 @@ th { background: #020617; position: sticky; top: 0; z-index: 10; }
     <button id="uploadBtn"><i class="fa fa-upload"></i></button>
     <button id="downloadBtn"><i class="fa fa-download"></i></button>
     <button id="plotAllBtn"><i class="fa-solid fa-map-location-dot"></i></button>
+    <button type="button" id="toggleCursorBtn" class="btn-cursor" title="Trocar Cursor">
+        <i class="fa fa-mouse-pointer"></i>
+    </button>
     <div style="position:relative; flex:1">
       <i class="fa fa-search" style="position:absolute; left:10px; top:11px; color:var(--muted)"></i>
       <input id="search" placeholder="Buscar..." style="width:100%; height:36px; border-radius:8px; border:1px solid var(--border); padding-left:32px; background:#020617; color:#fff;">
@@ -148,6 +190,8 @@ th { background: #020617; position: sticky; top: 0; z-index: 10; }
     <input type="file" id="csvFile" accept=".csv" hidden>
   </div>
 </header>
+
+
 
 <div id="map"></div>
 
@@ -164,7 +208,10 @@ th { background: #020617; position: sticky; top: 0; z-index: 10; }
     <div class="drawer-grid" id="drawerGrid"></div>
     <div class="drawer-actions">
       <button type="button" id="geoBtn" title="GPS"><i class="fa fa-location-crosshairs"></i></button>
+
       <button type="button" id="googleMapsBtn"  title="Ver no Google Maps"><i class="fa-brands fa-google"></i></button>
+      <button type="button" id="inspectBtn" title="Coordenada do Ponto"><i class="fa fa-crosshairs"></i>
+      </button>
       <button type="submit" title="Salvar"><i class="fa fa-check"></i></button>
       <button type="button" id="deleteBtn" style="background:var(--darkred)" title="Excluir"><i class="fa fa-trash"></i></button>
       <button type="button" onclick="closeDrawer()" title="Fechar"><i class="fa fa-times"></i></button>
@@ -188,12 +235,35 @@ th { background: #020617; position: sticky; top: 0; z-index: 10; }
 
 <script>
 let nomeArquivoOriginal = null, tabelaGeo = [], filtered = [], selectedIndex = null, camadasAtivas = {}, clickTimer = null;
+let inspectorAtivo = false;
+let ultimoPonto = null;
+
+
 const COLS = ["Tipo", "Equipamento", "Ativo", "Protocolo", "Azimute", "Latitude", "Longitude"];
 
 // 1. DEFINIÇÃO DOS TILES (MAPAS)
-const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:18});
-const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19});
+const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom: 22,
+    maxNativeZoom: 18});
+const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 22,
+    maxNativeZoom: 18});
+// Criamos as bases
+const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+    maxZoom: 22,
+    subdomains:['mt0','mt1','mt2','mt3']
+});
 
+const googleHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+    maxZoom: 22,
+    maxNativeZoom: 20, // O Google costuma ter fotos reais até o 20 em áreas urbanas
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+    attribution: 'Google Maps'
+});
+
+const sentinel = L.tileLayer('https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg', {
+    maxZoom: 22,        // Permite que o utilizador use zoom alto
+    maxNativeZoom: 16,  // Avisa que as fotos reais só vão até ao 16 (estica a imagem após isso)
+    attribution: 'Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH'
+});
 // 3. CRIAÇÃO DA CAMADA VAZIA (O "gatilho" para o seletor)
 // Definimos aqui no topo para que o baseMaps possa enxergá-la
 const mapaLocalVazio = L.tileLayer('', { attribution: 'IBGE / Local' });
@@ -201,28 +271,29 @@ const mapaLocalVazio = L.tileLayer('', { attribution: 'IBGE / Local' });
 // Adicione isso logo no início das variáveis globais
 const CONFIG_MAPAS = {
 
-    "ES_Municipios_2024": 20,
-    "Regiões Geográficas Imediatas": 20,
-    "Regiões Geográficas Intermediárias" : 21, 
+    "ES_Municipios_2024": 15,
+    "Regiões ES_RG_Imediatas_2024": 20,
+    "ES_RG_Intermediarias_2024" : 21, 
     "ES_UF_2024": 17        // Mapa geral, não precisa de tanto zoom
 };
 
     
 
-
-
 // 2. INICIALIZAÇÃO DO MAPA
 const map = L.map('map', {
     layers: [sat], 
     zoomControl: false, 
-    attributionControl: false
+    attributionControl: false,
+    maxZoom: 22 // Adicionamos isso aqui! 
 }).setView([-20.32, -40.34], 14);
-
 
 // 3. DEFINIÇÃO DAS CAMADAS PARA O BOTÃO
 let markersCluster = L.markerClusterGroup(); 
+
 const baseMaps = { 
-    "Satélite": sat, 
+    "Esri World Imagery": sat, // Sua camada original 
+    "Google Hybrid": googleHybrid,
+    "Sentinel-2 (OSM)": sentinel,
     "Ruas": osm,
     "Carregar Mapa Local": mapaLocalVazio // Opção que disparará o clique
 };
@@ -231,6 +302,107 @@ const overlayMaps = { "Agrupamento": markersCluster };
 
 map.addLayer(markersCluster);
 
+//Bo~tão  click no mapa
+let modoInspeçãoAtivo = false;
+const btnInspect = document.getElementById('inspectBtn');
+
+btnInspect.onclick = () => {
+    modoInspeçãoAtivo = !modoInspeçãoAtivo;
+    
+    if (modoInspeçãoAtivo) {
+        // Força o Azul
+        btnInspect.style.setProperty('background', '#4285F4', 'important'); 
+        btnInspect.classList.add('btn-ativo');
+        mapaStatus.update("📍 Modo Inspeção: Clique no mapa para capturar coordenadas.");
+    } else {
+        limparStatus();
+    }
+};;
+/*
+function limparStatus() {
+    // 1. Remove o marcador temporário se ele existir
+    if (window.tempMarker && map.hasLayer(window.tempMarker)) {
+        map.removeLayer(window.tempMarker);
+    }
+
+    // 2. Esconde o rodapé (mapaStatus)
+    if (window.mapaStatus) {
+        mapaStatus.update(""); 
+    }
+
+    // 3. Garante que o modo de inspeção seja desligado
+    modoInspeçãoAtivo = false;
+
+    // 4. Reseta a cor do botão para o padrão
+    if (btnInspect) {
+        btnInspect.style.background = 'var(--accent)';
+        btnInspect.classList.remove('btn-ativo');
+    }
+}
+*/
+function limparStatus() {
+    // 1. Remove o marcador se ele existir (precisa ser declarado fora do click)
+    if (window.tempMarker) {
+        map.removeLayer(window.tempMarker);
+        window.tempMarker = null;
+    }
+
+    // 2. Limpa o texto do rodapé
+    if (window.mapaStatus) {
+        mapaStatus.update("");
+    }
+
+    // 3. Desativa a lógica
+    modoInspeçãoAtivo = false;
+
+    // 4. Força a cor original (ex: cinza ou transparente)
+    btnInspect.style.setProperty('background', 'var(--accent)', 'important');
+    btnInspect.classList.remove('btn-ativo');
+}
+
+
+// Evento de clique no mapa
+map.on('click', (e) => {
+    if (!modoInspeçãoAtivo) return;
+
+    const latStr = e.latlng.lat.toFixed(6);
+    const lonStr = e.latlng.lng.toFixed(6);
+
+    // Marcação visual temporária no local clicado
+    const tempMarker = L.marker(e.latlng).addTo(map)
+        .bindTooltip(`Lat: ${latStr}<br>Lon: ${lonStr}`, { permanent: true, direction: 'top' })
+        .openTooltip();
+
+    // Atualiza o rodapé com a pergunta (estilo geobtn)
+    mapaStatus.update(`
+        📍 Local selecionado. Adicionar ao formulário? 
+        <button id="inspectSim" style="background:#22c55e; color:white; border:none; padding:4px 12px; cursor:pointer; margin-left:10px; border-radius:4px;">Sim</button>
+        <button id="inspectNao" style="background:#ef4444; color:white; border:none; padding:4px 12px; cursor:pointer; margin-left:5px; border-radius:4px;">Não</button>
+    `);
+
+    // Lógica do botão SIM
+    document.getElementById('inspectSim').onclick = () => {
+        const iL = document.getElementById('inp_Latitude');
+        const iO = document.getElementById('inp_Longitude');
+        
+        iL.value = iL.value ? iL.value + ' - ' + latStr : latStr;
+        iO.value = iO.value ? iO.value + ' - ' + lonStr : lonStr;
+        
+        finalizarInspeção(tempMarker);
+    };
+
+    // Lógica do botão NÃO
+    document.getElementById('inspectNao').onclick = () => {
+        finalizarInspeção(tempMarker);
+    };
+});
+
+function finalizarInspeção(marker) {
+    if (map.hasLayer(marker)) map.removeLayer(marker);
+    modoInspeçãoAtivo = false;
+    btnInspect.style.background = '';
+    mapaStatus.update(""); 
+}
 
 
 // 2. Adiciona o controle normalmente
@@ -238,13 +410,32 @@ const layerControl = L.control.layers(baseMaps, overlayMaps, { position: 'toprig
 
 window.layerControl = layerControl;
 
+// Lógica de troca
+const btnCursor = document.getElementById('toggleCursorBtn');
+const mapaContainer = map.getContainer(); // Acessa a div do Leaflet
+
+btnCursor.addEventListener('click', function() {
+    // Alterna a classe; se existir ela sai, se não existir ela entra
+    mapaContainer.classList.toggle('custom-arrow-cursor');
+    
+    // Opcional: mudar a cor do botão para indicar que está ativo
+    this.style.background = mapaContainer.classList.contains('custom-arrow-cursor') 
+        ? 'var(--google-blue)' 
+        : 'var(--accent)';
+});
+
+    // Remove as classes anteriores para não dar conflito
+    mapaContainer.classList.remove('cursor-seta', 'cursor-mao', 'cursor-mira', 'cursor-ajuda');
+    
+    // Adiciona a classe selecionada
+    mapaContainer.classList.add(this.value);
 // Função para garantir que os botões apareçam
 
 function initControls() {
     // 1. Zoom
     L.control.zoom({ position: 'topright' }).addTo(map);
     // 3. Camadas
-    L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
+   // L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
 
     // 2. Régua (Geoman)
     if (map.pm) {
@@ -303,9 +494,9 @@ async function carregarListaDeMapas() {
 
     } catch (err) {
         // Se der erro de CORS ou 404, ele usa a lista abaixo
-        console.warn("CORS/Erro detectado. Carregando lista estável do código.");
+       //onsole.warn("CORS/Erro detectado. Carregando lista estável do código.");
         renderizarSelect(listaBackup);
-        console.log(listaBackup)
+       
     }
 
     function renderizarSelect(dados) {
@@ -356,7 +547,7 @@ async function confirmarCarregamento() {
 
         // B. Ajustamos o zoom máximo permitido
         const maxZoomDefinido = CONFIG_MAPAS[arquivoAtual] || 19;
-console.log('Zoom máximo definido:', maxZoomDefinido);
+
         map.setMaxZoom(maxZoomDefinido);
 
         // C. Zoom automático para enquadrar o mapa
@@ -386,54 +577,8 @@ map.whenReady(() => {
     setTimeout(initControls, 100);
 });
 
-// Função para carregar ZIP (Shapefile) do servidor
-async function carregarZipDoServidor(nomeArquivo) {
-    try {
-        mapaStatus.update("⏳ Processando arquivo do IBGE...");
-        
-        // Faz a requisição do arquivo ZIP que está na pasta do seu servidor
-        const response = await fetch(`./mapas/${nomeArquivo}.zip`);
-        const buffer = await response.arrayBuffer();
-        
-        // A biblioteca shpjs extrai o ZIP e converte para GeoJSON automaticamente
-        const geojson = await shp(buffer);
-        
-        const camadaIBGE = L.geoJSON(geojson, {
-            style: {
-                color: "#1d4ed8",
-                weight: 2,
-                fillOpacity: 0.2
-            },
-            onEachFeature: (feature, layer) => {
-                // Tenta pegar o nome da localidade se existir nos dados do IBGE
-                const nome = feature.properties.NM_MUN || feature.properties.NM_BAIRRO || "Área IBGE";
-                layer.bindPopup(`<b>Local:</b> ${nome}`);
-            }
-        }).addTo(map);
 
-        // Adiciona ao menu de camadas para o usuário poder ligar/desligar
-        layerControl.addOverlay(camadaIBGE, "IBGE: " + nomeArquivo);
-        
-        // Ajusta o zoom para a área do arquivo carregado
-        map.fitBounds(camadaIBGE.getBounds());
-        mapaStatus.update("✅ Camada carregada com sucesso!");
 
-    } catch (err) {
-        console.error(err);
-        mapaStatus.update("❌ Erro ao carregar o ZIP do servidor.");
-    }
-}
-/*
-// Gatilho no menu de camadas
-map.on('baselayerchange', function(e) {
-    if (e.name === "Carregar Mapa Local") {
-        // Exemplo: solicita o nome do arquivo que está na pasta do servidor
-        let arquivo = prompt("Digite o nome do arquivo ZIP no servidor (sem .zip):", "municipios_es");
-        if(arquivo) carregarZipDoServidor(arquivo);
-    }
-});
-
-*/
 // Monitora a troca de camada para abrir o seletor
 map.on('baselayerchange', function(e) {
     if (e.name === "Carregar Mapa Local") {
@@ -542,19 +687,7 @@ document.getElementById('downloadBtn').onclick = () => {
     link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
     link.download = nomeFinal; link.click();
 };
-/*
-// MEDIÇÃO
-const CustomMeasure = L.Control.extend({
-    options: { position: 'topright' },
-    onAdd: function() {
-        const div = L.DomUtil.create('div', 'leaflet-measure-btn');
-        div.innerHTML = `<i class="fa-solid fa-ruler-combined"></i><div class="measure-menu" id="mMenu"><button onclick="startMeasure('line')">Linha</button><button onclick="startMeasure('area')">Área</button><button onclick="clearMeasure()" style="color:#f87171">Limpar</button></div>`;
-        div.onclick = (e) => { e.stopPropagation(); document.getElementById('mMenu').classList.toggle('active'); };
-        return div;
-    }
-});
-map.addControl(new CustomMeasure());
-*/
+
 // Cria um elemento de rodapé personalizado no Leaflet
 const mapaStatus = L.control({ position: 'bottomleft' });
 
@@ -610,62 +743,7 @@ function openDrawer(idx) {
     document.getElementById("drawer").classList.add("active");
 }
 function closeDrawer() { document.getElementById("drawer").classList.remove("active"); }
-/*
-document.getElementById('geoBtn').onclick = () => {
-    navigator.geolocation.getCurrentPosition(pos => {
-        // Guardamos os números para o mapa e as strings para o texto
-        const latNum = pos.coords.latitude;
-        const lonNum = pos.coords.longitude;
-        const latStr = latNum.toFixed(6);
-        const lonStr = lonNum.toFixed(6);
-        const acc = pos.coords.accuracy.toFixed(1); // Definindo a variável acc corretamente
 
-        // 1. Cria um marcador temporário com Tooltip da precisão
-        const temp = L.marker([latNum, lonNum])
-            .addTo(map)
-            .bindTooltip(`${acc}m`, { permanent: true })
-            .openTooltip();
-
-        // 2. Cria e abre o Popup formatado
-        L.popup()
-            .setLatLng([latNum, lonNum])
-            .setContent(`
-                <div style="text-align:center; font-family: sans-serif; color: #000;">
-                    <b style="color: #000000;">Sua Localização</b><br>
-                    <hr style="border:0; border-top:1px solid #ccc; margin:5px 0">
-                    <b>Lat:</b> ${latStr}<br>
-                    <b>Lon:</b> ${lonStr}<br>
-                    <small>Precisão: <b>${acc}m</b></small>
-                </div>
-            `)
-            .openOn(map);
-
-        // 3. Centraliza o mapa
-        map.setView([latNum, lonNum], 18);
-
-        // 4. Aguarda meio segundo para o usuário ver o ponto antes de perguntar
-        setTimeout(() => {
-            if(confirm(`Adicionar coordenadas de GPS ao formulário?`)) {
-                const iL = document.getElementById('inp_Latitude');
-                const iO = document.getElementById('inp_Longitude');
-                
-                // Concatena se já houver valor
-                iL.value = iL.value ? iL.value + ' - ' + latStr : latStr;
-                iO.value = iO.value ? iO.value + ' - ' + lonStr : lonStr;
-            }
-            // Remove o marcador temporário e o popup após a decisão
-            map.removeLayer(temp);
-            map.closePopup();
-        }, 500);
-
-    }, (err) => {
-        alert("Erro ao obter GPS: " + err.message);
-    }, {
-        enableHighAccuracy: true,
-        timeout: 10000 // Aumentado para 10s para garantir sinal em locais difíceis
-    });
-};
-*/
 document.getElementById('geoBtn').onclick = () => {
     navigator.geolocation.getCurrentPosition(pos => {
         const lat = pos.coords.latitude, lon = pos.coords.longitude;
@@ -720,21 +798,8 @@ document.getElementById('geoBtn').onclick = () => {
         alert("Erro ao obter GPS: " + err.message);
     }, {enableHighAccuracy:true, timeout: 10000});
 };
-/*on('click', (e) => {
-    if (document.getElementById("drawer").classList.contains("active")) {
-        const lat = e.latlng.lat.toFixed(6), lon = e.latlng.lng.toFixed(6);
-        const tempM = L.marker(e.latlng).addTo(map).bindTooltip(`${lat}, ${lon}`, {permanent:true}).openTooltip();
-        setTimeout(() => {
-            if(confirm(`Adicionar coordenadas?`)) {
-                const iL = document.getElementById('inp_Latitude'), iO = document.getElementById('inp_Longitude');
-                iL.value = iL.value ? iL.value + ' - ' + lat : lat;
-                iO.value = iO.value ? iO.value + ' - ' + lon : lon;
-            }
-            map.removeLayer(tempM);
-        }, 100);
-    }
-});
-*/
+
+
 
 // UPLOAD & CONTROLES GERAIS
 document.getElementById('uploadBtn').onclick = () => document.getElementById('csvFile').click();
