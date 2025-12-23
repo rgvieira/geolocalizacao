@@ -230,6 +230,11 @@ function toggleRegistro(r, idx) {
 }
 function openDrawer(idx) { selectedIndex = idx; const grid = document.getElementById("drawerGrid"); grid.innerHTML = ""; COLS.forEach(c => grid.innerHTML += `<div><label>${c}</label><input id="inp_${c}" value="${filtered[idx][c]||''}"></div>`); document.getElementById("drawer").classList.add("active"); }
 function closeDrawer() { document.getElementById("drawer").classList.remove("active"); }
+// Incluir
+document.getElementById('addBtn').onclick = () => { 
+    tabelaGeo.push({Tipo: "Ponto", Equipamento: "Novo", Ativo: "Sim", Azimute: "", Latitude: "", Longitude: ""}); 
+    filtered = [...tabelaGeo]; renderTable(); openDrawer(filtered.length-1); 
+};
 
 // UPLOAD CSV/ZIP
 document.getElementById('uploadBtn').onclick = () => document.getElementById('csvFile').click();
