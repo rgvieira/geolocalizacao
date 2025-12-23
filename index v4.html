@@ -2,19 +2,18 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8"/>
-<title>Geo Painel v12.3 - RESTAURAÇÃO TOTAL</title>
+
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"/>
-
+<title>Geo Painel v12.3 - RESTAURAÇÃO TOTAL</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
 <script src="https://unpkg.com/@mapbox/shp-write@latest/shpwrite.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-
 <style>
 :root{ --bg:#0f172a; --panel:#111827; --border:#334155; --text:#f8fafc; --muted:#94a3b8; --accent:#14532d; --darkred: #7f1d1d; }
 *{box-sizing:border-box}
@@ -95,6 +94,7 @@ th { background: #020617; position: sticky; top: 0; z-index: 100; }
 </div>
 
 <script>
+    
 let nomeArquivoOriginal = null, tabelaGeo = [], filtered = [], selectedIndex = null, camadasAtivas = {}, clickTimer = null, isMeasuring = false;
 const COLS = ["Tipo", "Equipamento", "Ativo", "Protocolo", "Azimute", "Latitude", "Longitude"];
 
@@ -161,14 +161,22 @@ document.getElementById('googleMapsBtn').onclick = () => {
 };
 
 document.getElementById('geoBtn').onclick = () => {
+    const options = {
+        enableHighAccuracy: true, // Força maior precisão (ex: GPS)
+        timeout: 5000,            // Tempo máximo de espera (5 segundos)
+        maximumAge: 0             // Não aceita localização em cache
+    };
     navigator.geolocation.getCurrentPosition(pos => {
         const lat = pos.coords.latitude.toFixed(6), lon = pos.coords.longitude.toFixed(6);
         const iL = document.getElementById('inp_Latitude'), iO = document.getElementById('inp_Longitude');
         iL.value = iL.value ? iL.value + ' - ' + lat : lat;
         iO.value = iO.value ? iO.value + ' - ' + lon : lon;
-    });
+    }, erroGeo,options);
 };
 
+function erroGeo(err) {
+    console.warn(`ERRO(${err.code}): ${err.message}`);
+}
 // RÉGUA (RESTAURADA)
 const CustomMeasure = L.Control.extend({
     options: { position: 'topright' },
