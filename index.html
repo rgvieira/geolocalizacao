@@ -196,6 +196,10 @@ const COLS = ["Tipo", "Equipamento", "Ativo", "Protocolo", "Azimute", "Latitude"
 const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:18});
 const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19});
 
+// 3. CRIAÇÃO DA CAMADA VAZIA (O "gatilho" para o seletor)
+// Definimos aqui no topo para que o baseMaps possa enxergá-la
+const mapaLocalVazio = L.tileLayer('', { attribution: 'IBGE / Local' });
+
 // 2. INICIALIZAÇÃO DO MAPA
 const map = L.map('map', {
     layers: [sat], 
@@ -205,19 +209,23 @@ const map = L.map('map', {
 
 // 3. DEFINIÇÃO DAS CAMADAS PARA O BOTÃO
 let markersCluster = L.markerClusterGroup(); 
-map.addLayer(markersCluster);
-// 1. Criamos uma camada vazia que servirá de "gatilho"
-const mapaLocalVazio = L.tileLayer('', { attribution: 'Mapa Local' });
-
 const baseMaps = { 
     "Satélite": sat, 
     "Ruas": osm,
     "Carregar Mapa Local": mapaLocalVazio // Opção que disparará o clique
 };
+
+const overlayMaps = { "Agrupamento": markersCluster };
+
+map.addLayer(markersCluster);
+
+
+
 // 2. Adiciona o controle normalmente
 const layerControl = L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
 
-const overlayMaps = { "Agrupamento": markersCluster };
+window.layerControl = layerControl;
+
 // Função para garantir que os botões apareçam
 
 function initControls() {
@@ -263,31 +271,42 @@ function initControls() {
 // Função para carregar a lista de mapas do JSON
 async function carregarListaDeMapas() {
     const select = document.getElementById('zipSelect');
+    
+    // Lista de backup caso o fetch falhe (CORS ou arquivo ausente)
+    const listaBackup = [
+        { "nome": "Base Cartográfica 250k (Nov/25)", "arquivo": "bc250_2025-11-21" },
+        { "nome": "Municípios do ES (2024)", "arquivo": "ES_Municipios_2024" },
+        { "nome": "Regiões Geográficas Imediatas", "arquivo": "ES_RG_Imediatas_2024" },
+        { "nome": "Regiões Geográficas Intermediárias", "arquivo": "ES_RG_Intermediarias_2024" },
+        { "nome": "Estado do Espírito Santo (UF)", "arquivo": "ES_UF_2024" }
+    ];
+
     try {
         const response = await fetch('./lista.json');
-        if (!response.ok) throw new Error("Não foi possível carregar o lista.json");
+        if (!response.ok) throw new Error("Usando lista de backup");
         
         let mapas = await response.json();
-        
-        // Ordenar a lista pelo 'nome' de exibição
-        mapas.sort((a, b) => a.nome.localeCompare(b.nome));
-
-        // Limpa o select e adiciona a opção padrão
-        select.innerHTML = '<option value="">Selecione um mapa...</option>';
-        
-        mapas.forEach(item => {
-            const opt = document.createElement('option');
-            opt.value = item.arquivo; // O código usará isso para o fetch
-            opt.textContent = item.nome; // O usuário verá isso
-            select.appendChild(opt);
-        });
+        renderizarSelect(mapas);
+        //console.log("Lista carregada via JSON do servidor.");
 
     } catch (err) {
-        select.innerHTML = '<option value="">Erro ao carregar lista</option>';
-        console.error("Erro no JSON:", err);
+        // Se der erro de CORS ou 404, ele usa a lista abaixo
+        console.warn("CORS/Erro detectado. Carregando lista estável do código.");
+        renderizarSelect(listaBackup);
+        console.log(listaBackup)
+    }
+
+    function renderizarSelect(dados) {
+        dados.sort((a, b) => a.nome.localeCompare(b.nome));
+        select.innerHTML = '<option value="">Selecione um mapa...</option>';
+        dados.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.arquivo;
+            opt.textContent = item.nome;
+            select.appendChild(opt);
+        });
     }
 }
-
 // Inicia a carga assim que o mapa estiver pronto
 map.whenReady(carregarListaDeMapas);
 
