@@ -3,17 +3,17 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8"/>
-<title>Geo Painel v10.7 - Full Preservation</title>
+
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"/>
-
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 
+<title>Geo Painel v10.7 - Full Preservation</title>
 <style>
 :root{
   --bg:#0f172a; --panel:#111827; --border:#334155;
@@ -109,7 +109,7 @@ th { background: #020617; position: sticky; top: 0; z-index: 10; }
     <div class="drawer-grid" id="drawerGrid"></div>
     <div class="drawer-actions">
       <button type="button" id="geoBtn" title="GPS"><i class="fa fa-location-crosshairs"></i></button>
-      <button type="button" id="googleMapsBtn" style="background:var(--google-blue)" title="Ver no Google Maps"><i class="fa-brands fa-google"></i></button>
+      <button type="button" id="googleMapsBtn"  title="Ver no Google Maps"><i class="fa-brands fa-google"></i></button>
       <button type="submit" title="Salvar"><i class="fa fa-check"></i></button>
       <button type="button" id="deleteBtn" style="background:var(--darkred)" title="Excluir"><i class="fa fa-trash"></i></button>
       <button type="button" onclick="closeDrawer()" title="Fechar"><i class="fa fa-times"></i></button>
@@ -280,6 +280,22 @@ document.getElementById('geoBtn').onclick = () => {
         const lat = pos.coords.latitude.toFixed(6), lon = pos.coords.longitude.toFixed(6);
         const temp = L.marker([lat, lon]).addTo(map).bindTooltip(`${pos.coords.accuracy.toFixed(1)}m`, {permanent:true}).openTooltip();
         map.setView([lat, lon], 18);
+        // 2. Cria e abre o Popup no mapa
+        L.popup()
+            .setLatLng([lat, lon])
+            .setContent(`
+                <div style="text-align:center; font-family: sans-serif;">
+                    <b style="color: #000000;">Sua Localização</b><br>
+                    <hr style="border:0; border-top:1px solid #eee; margin:5px 0">
+                    <b>Lat:</b> ${lat.toFixed(6)}<br>
+                    <b>Lon:</b> ${lon.toFixed(6)}<br>
+                    <small>Precisão: <b>${acc}m</b></small>
+                </div>
+            `)
+            .openOn(map);
+
+        // Centraliza o mapa na posição
+        map.setView([lat, lon], 16);
         setTimeout(() => {
             if(confirm(`Adicionar GPS?`)) {
                 const iL = document.getElementById('inp_Latitude'), iO = document.getElementById('inp_Longitude');
@@ -330,7 +346,7 @@ document.getElementById('plotAllBtn').onclick = () => {
 };
 
 document.getElementById('addBtn').onclick = () => { 
-    tabelaGeo.push({Tipo: "Ponto", Equipamento: "Novo", Ativo: "Sim", Azimute: "", Latitude: "", Longitude: ""}); 
+    tabelaGeo.push({Tipo: "(Ponto / Pol´gono)", Equipamento: "", Ativo: "Sim", Azimute: "", Latitude: "", Longitude: ""}); 
     filtered = [...tabelaGeo]; renderTable(); openDrawer(filtered.length-1); 
 };
 
