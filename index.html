@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -8,72 +9,148 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"/>
-<title>Geo Painel v12.3 - RESTAURAÇÃO TOTAL</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-<script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
-<script src="https://unpkg.com/@mapbox/shp-write@latest/shpwrite.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
-<!-- https://htmlpreview.github.io/?https://github.com/rgvieira/geolocalizacao/blob/main/index%20v4.html -->
-<style>
-:root{ --bg:#0f172a; --panel:#111827; --border:#334155; --text:#f8fafc; --muted:#94a3b8; --accent:#14532d; --darkred: #7f1d1d; }
-*{box-sizing:border-box}
-html, body { height: 100dvh; margin: 0; overflow: hidden; background: var(--bg); color: var(--text); font-family: system-ui; }
-body { display: flex; flex-direction: column; }
-header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 8px; z-index: 1000; }
-.controls { display: flex; gap: 6px; align-items: center; }
-.controls button { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); background: var(--accent); color: #fff; cursor: pointer; }
-#map { height: 45vh; width: 100%; border-bottom: 1px solid var(--border); position: relative; z-index: 10; }
 
-/* RÉGUA E POPUPS DIREITA */
-.leaflet-measure-btn { background: #fff !important; width: 34px !important; height: 34px !important; border-radius: 4px; border: 2px solid rgba(0,0,0,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; color: #333 !important; font-size: 16px; z-index: 5000; }
-.map-overlay-right { position: absolute; top: 100px; right: 10px; z-index: 1001; display: flex; flex-direction: column; gap: 8px; }
-.map-btn-round { background: #fff; color: #333; width: 34px; height: 34px; border-radius: 4px; border: 2px solid rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-.floating-menu { position: absolute; right: 42px; top: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; display: none; flex-direction: column; min-width: 150px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-.floating-menu.active { display: flex; }
-.floating-menu button { background: none; border: none; color: #fff; padding: 10px; text-align: left; font-size: 12px; cursor: pointer; border-bottom: 1px solid var(--border); }
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.css" />
+
+<script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
+<script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+
+<title>Geo Painel v10.7 - Full Preservation</title>
+<style>
+:root{
+  --bg:#0f172a; --panel:#111827; --border:#334155;
+  --text:#f8fafc; --muted:#94a3b8; --accent:#14532d;
+  --darkred: #7f1d1d;
+  --glass: rgba(15, 23, 42, 0.85);
+  --google-blue: #4285F4;
+}
+*{box-sizing:border-box}
+html, body { 
+    height: 100dvh; margin: 0; overflow: hidden; 
+    background: var(--bg); color: var(--text); font-family: system-ui;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+body { display: flex; flex-direction: column; }
+header { background: var(--panel); border-bottom: 1px solid var(--border); flex-shrink: 0; z-index: 100; }
+
+.controls { padding: 8px; display: flex; gap: 6px; align-items: center; }
+.controls button { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); background: var(--accent); color: #fff; cursor: pointer; }
+
+#map { height: 45vh; width: 100%; flex-shrink: 0; border-bottom: 1px solid var(--border); position: relative; }
+.map-footer {
+    transition: opacity 0.3s ease;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    border: 1px solid var(--border);
+    max-width: 300px;
+}
+#customAlert { 
+    position: fixed; top: -150px; left: 50%; transform: translateX(-50%); 
+    background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--border); color: #fff; padding: 14px 20px; 
+    border-radius: 12px; font-weight: bold; z-index: 9999; 
+    transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); width: 80%; max-width: 300px; text-align: center; 
+}
+#customAlert.show { top: 15%; }
+/* Garante que o container da direita permita o empilhamento correto */
+.leaflet-top.leaflet-right {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    z-index: 1000 !important;
+}
+
+/* Força TODOS os blocos de controle a serem visíveis */
+.leaflet-right .leaflet-control {
+    display: block !important;
+    margin-right: 12px !important;
+    margin-top: 5px !important;
+    margin-bottom: 0 !important;
+    position: relative !important;
+    float: none !important;
+    clear: both !important;
+}
+
+/* PADRONIZAÇÃO ABSOLUTA DE TAMANHO */
+/* Zoom, Camadas, Geoman/Régua e seu GPS */
+.leaflet-control-zoom a,
+.leaflet-control-layers-toggle,
+.leaflet-pm-toolbar button,
+.leaflet-buttons-control-button,
+#geoBtn {
+    width: 34px !important;
+    height: 34px !important;
+    background-color: #1a1a1a !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 4px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+    text-decoration: none !important;
+}
+
+/* Ajuste específico para o ícone de camadas (que costuma sumir) */
+.leaflet-control-layers-toggle {
+    background-image: none !important;
+}
+.leaflet-control-layers-toggle::before {
+    content: '\f5fd'; 
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 15px;
+}
+
+.measure-menu {
+    position: absolute; right: 42px; top: 0; background: var(--panel); 
+    border: 1px solid var(--border); border-radius: 8px; display: none; 
+    flex-direction: column; min-width: 140px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+.measure-menu.active { display: flex; }
+.measure-menu button { 
+    background: none; border: none; color: #fff; padding: 10px 15px; text-align: left; 
+    font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border);
+}
+
+.compass-icon { transition: transform 0.3s ease-out; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); }
 
 .table-wrapper { flex-grow: 1; overflow: auto; background: var(--panel); }
 table { width: 100%; border-collapse: collapse; font-size: .72rem; table-layout: fixed; }
 th, td { padding: 12px 4px; border-bottom: 1px solid var(--border); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-th { background: #020617; position: sticky; top: 0; z-index: 100; }
+th { background: #020617; position: sticky; top: 0; z-index: 10; }
 
-#drawer { position: fixed; left: 0; right: 0; bottom: -100%; background: var(--panel); border-top: 1px solid var(--border); border-radius: 14px 14px 0 0; padding: 12px; transition: .3s; z-index: 2000; }
+#drawer { position: fixed; left: 0; right: 0; bottom: -100%; background: var(--panel); border-top: 1px solid var(--border); border-radius: 14px 14px 0 0; padding: 12px; transition: .3s; z-index: 1001; }
 #drawer.active { bottom: 0; }
 .drawer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.drawer-grid input { height: 34px; border-radius: 6px; border: 1px solid var(--border); background: #020617; color: #fff; padding: 0 8px; font-size: .8rem; }
-.drawer-actions { display: flex; gap: 4px; margin-top: 12px; }
-.drawer-actions button { flex: 1; height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--accent); color: white; cursor: pointer; }
+.drawer-grid input, .drawer-grid select { height: 34px; border-radius: 6px; border: 1px solid var(--border); background: #020617; color: #fff; padding: 0 8px; font-size: .8rem; }
+.drawer-actions { display: flex; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
+.drawer-actions button { flex: 1; min-width: 40px; height: 40px; border-radius: 8px; border: none; background: var(--accent); color: white; cursor: pointer; }
+
 </style>
 </head>
 <body>
+
+<div id="customAlert"></div>
 
 <header>
   <div class="controls">
     <button id="addBtn"><i class="fa fa-plus"></i></button>
     <button id="uploadBtn"><i class="fa fa-upload"></i></button>
     <button id="downloadBtn"><i class="fa fa-download"></i></button>
-    <button id="plotAllBtn" title="Plotar/Limpar Tudo"><i class="fa-solid fa-map-location-dot"></i></button>
+    <button id="plotAllBtn"><i class="fa-solid fa-map-location-dot"></i></button>
     <div style="position:relative; flex:1">
-      <input id="search" placeholder="Buscar..." style="width:100%; height:36px; border-radius:8px; border:1px solid var(--border); padding-left:10px; background:#020617; color:#fff;">
+      <i class="fa fa-search" style="position:absolute; left:10px; top:11px; color:var(--muted)"></i>
+      <input id="search" placeholder="Buscar..." style="width:100%; height:36px; border-radius:8px; border:1px solid var(--border); padding-left:32px; background:#020617; color:#fff;">
     </div>
-    <input type="file" id="csvFile" accept=".csv,.zip" hidden>
+    <input type="file" id="csvFile" accept=".csv" hidden>
   </div>
 </header>
 
-<div id="map">
-  <div class="map-overlay-right">
-      <div style="position:relative">
-          <div class="map-btn-round" onclick="toggleMenu('menuExport')"><i class="fa-solid fa-file-export"></i></div>
-          <div class="floating-menu" id="menuExport">
-              <button onclick="exportData('shp')">Shapefile (ZIP)</button>
-              <button onclick="exportData('geojson')">GeoJSON</button>
-              <button onclick="exportData('json')">JSON</button>
-          </div>
-      </div>
-  </div>
-</div>
-
+<div id="map"></div>
+<input type="file" id="localTileInput" webkitdirectory directory multiple hidden>
 <div class="table-wrapper">
   <table>
     <thead><tr><th style="width:30px">#</th><th>Tipo</th><th>Equip.</th><th style="width:40px">Az.</th><th>Lat</th><th>Lon</th></tr></thead>
@@ -85,32 +162,247 @@ th { background: #020617; position: sticky; top: 0; z-index: 100; }
   <form id="drawerForm">
     <div class="drawer-grid" id="drawerGrid"></div>
     <div class="drawer-actions">
-      <button type="button" id="geoBtn"><i class="fa fa-location-crosshairs"></i></button>
-      <button type="button" id="googleMapsBtn"><i class="fa-brands fa-google"></i></button>
-      <button type="submit"><i class="fa fa-check"></i></button>
-      <button type="button" id="deleteBtn" style="background:var(--darkred)"><i class="fa fa-trash"></i></button>
-      <button type="button" onclick="closeDrawer()"><i class="fa fa-times"></i></button>
+      <button type="button" id="geoBtn" title="GPS"><i class="fa fa-location-crosshairs"></i></button>
+      <button type="button" id="googleMapsBtn"  title="Ver no Google Maps"><i class="fa-brands fa-google"></i></button>
+      <button type="submit" title="Salvar"><i class="fa fa-check"></i></button>
+      <button type="button" id="deleteBtn" style="background:var(--darkred)" title="Excluir"><i class="fa fa-trash"></i></button>
+      <button type="button" onclick="closeDrawer()" title="Fechar"><i class="fa fa-times"></i></button>
     </div>
   </form>
 </div>
 
+<div id="mapSelector" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--panel); border:1px solid var(--border); padding:20px; border-radius:12px; z-index:10002; width:300px; box-shadow:0 0 20px rgba(0,0,0,0.5);">
+    <h3 style="margin-top:0; font-size:16px;">Arquivos no Servidor</h3>
+    <select id="zipSelect" style="width:100%; height:36px; background:#020617; color:white; border:1px solid var(--border); border-radius:6px; margin-bottom:15px;">
+        <option value="">Selecione um arquivo...</option>
+        <option value="municipios_es">Municípios ES (IBGE)</option>
+        <option value="setores_censitarios">Setores Censitários</option>
+        <option value="limites_preservacao">Limites de Preservação</option>
+    </select>
+    <div style="display:flex; gap:10px;">
+        <button onclick="confirmarCarregamento()" style="flex:1; background:var(--accent); color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">Carregar</button>
+        <button onclick="document.getElementById('mapSelector').style.display='none'" style="flex:1; background:var(--darkred); color:white; border:none; padding:8px; border-radius:6px; cursor:pointer;">Cancelar</button>
+    </div>
+</div>
+
 <script>
-    
-let nomeArquivoOriginal = null, tabelaGeo = [], filtered = [], selectedIndex = null, camadasAtivas = {}, clickTimer = null, isMeasuring = false;
+let nomeArquivoOriginal = null, tabelaGeo = [], filtered = [], selectedIndex = null, camadasAtivas = {}, clickTimer = null;
 const COLS = ["Tipo", "Equipamento", "Ativo", "Protocolo", "Azimute", "Latitude", "Longitude"];
 
-// INICIALIZAÇÃO MAPA
-const map = L.map('map', {zoomControl:true, attributionControl:false}).setView([-20.32, -40.34], 14);
-const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:18}).addTo(map);
-const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
-L.control.layers({ "Satélite": sat, "Rua": osm }, null, {position: 'topright'}).addTo(map);
-let markersCluster = L.markerClusterGroup(); map.addLayer(markersCluster);
+// 1. DEFINIÇÃO DOS TILES (MAPAS)
+const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:18});
+const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19});
 
-// FUNÇÃO DE PLOTAGEM (RESTAURADA - CONES E CORES)
+// 2. INICIALIZAÇÃO DO MAPA
+const map = L.map('map', {
+    layers: [sat], 
+    zoomControl: false, 
+    attributionControl: false
+}).setView([-20.32, -40.34], 14);
+
+// 3. DEFINIÇÃO DAS CAMADAS PARA O BOTÃO
+let markersCluster = L.markerClusterGroup(); 
+map.addLayer(markersCluster);
+// 1. Criamos uma camada vazia que servirá de "gatilho"
+const mapaLocalVazio = L.tileLayer('', { attribution: 'Mapa Local' });
+
+const baseMaps = { 
+    "Satélite": sat, 
+    "Ruas": osm,
+    "Carregar Mapa Local": mapaLocalVazio // Opção que disparará o clique
+};
+const overlayMaps = { "Agrupamento": markersCluster };
+// Função para garantir que os botões apareçam
+function initControls() {
+    // 1. Zoom
+    L.control.zoom({ position: 'topright' }).addTo(map);
+    // 3. Camadas
+    L.control.layers(baseMaps, overlayMaps, { position: 'topright' }).addTo(map);
+
+    // 2. Régua (Geoman)
+    if (map.pm) {
+        map.pm.addControls({
+            position: 'topright',
+            drawMarker: false,
+            drawPolyline: true, // Régua
+            drawRectangle: false,
+            drawPolygon: false,
+            drawCircle: false,
+            removalMode: true,
+            editMode: false,
+            dragMode: false,
+            cutPolygon: false
+        });
+        // 1. Ativa o Português
+        map.pm.setLang('pt_br');
+    }
+
+
+    // 4. GPS (Como controle oficial)
+    const GPSCtrl = L.Control.extend({
+        options: { position: 'topright' },
+        onAdd: function() {
+            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+            container.innerHTML = `<a id="geoBtn" title="GPS" style="cursor:pointer; display:flex; align-items:center; justify-content:center; background:#1a1a1a; color:white; width:34px; height:34px;">
+                <i class="fa fa-location-crosshairs"></i>
+            </a>`;
+            container.onclick = (e) => { e.preventDefault(); pegarGPS(); };
+            return container;
+        }
+    });
+    map.addControl(new GPSCtrl());
+}
+
+// Executa a criação dos botões após o mapa estar pronto
+map.whenReady(() => {
+    setTimeout(initControls, 100);
+});
+
+// Função para carregar ZIP (Shapefile) do servidor
+async function carregarZipDoServidor(nomeArquivo) {
+    try {
+        mapaStatus.update("⏳ Processando arquivo do IBGE...");
+        
+        // Faz a requisição do arquivo ZIP que está na pasta do seu servidor
+        const response = await fetch(`./mapas_ibge/${nomeArquivo}.zip`);
+        const buffer = await response.arrayBuffer();
+        
+        // A biblioteca shpjs extrai o ZIP e converte para GeoJSON automaticamente
+        const geojson = await shp(buffer);
+        
+        const camadaIBGE = L.geoJSON(geojson, {
+            style: {
+                color: "#1d4ed8",
+                weight: 2,
+                fillOpacity: 0.2
+            },
+            onEachFeature: (feature, layer) => {
+                // Tenta pegar o nome da localidade se existir nos dados do IBGE
+                const nome = feature.properties.NM_MUN || feature.properties.NM_BAIRRO || "Área IBGE";
+                layer.bindPopup(`<b>Local:</b> ${nome}`);
+            }
+        }).addTo(map);
+
+        // Adiciona ao menu de camadas para o usuário poder ligar/desligar
+        layerControl.addOverlay(camadaIBGE, "IBGE: " + nomeArquivo);
+        
+        // Ajusta o zoom para a área do arquivo carregado
+        map.fitBounds(camadaIBGE.getBounds());
+        mapaStatus.update("✅ Camada carregada com sucesso!");
+
+    } catch (err) {
+        console.error(err);
+        mapaStatus.update("❌ Erro ao carregar o ZIP do servidor.");
+    }
+}
+/*
+// Gatilho no menu de camadas
+map.on('baselayerchange', function(e) {
+    if (e.name === "Carregar Mapa Local") {
+        // Exemplo: solicita o nome do arquivo que está na pasta do servidor
+        let arquivo = prompt("Digite o nome do arquivo ZIP no servidor (sem .zip):", "municipios_es");
+        if(arquivo) carregarZipDoServidor(arquivo);
+    }
+});
+
+*/
+// Monitora a troca de camada para abrir o seletor
+map.on('baselayerchange', function(e) {
+    if (e.name === "Carregar Mapa Local") {
+        // Volta para o satélite para não deixar a camada "vazia" ativa
+        map.addLayer(sat); 
+        document.getElementById('mapSelector').style.display = 'block';
+    }
+});
+
+async function confirmarCarregamento() {
+    const arquivo = document.getElementById('zipSelect').value;
+    if (!arquivo) return;
+
+    document.getElementById('mapSelector').style.display = 'none';
+    mapaStatus.update("⏳ Baixando e convertendo ZIP do IBGE...");
+
+    try {
+        // Busca o arquivo na pasta 'mapas_ibge' dentro do seu servidor
+        const response = await fetch(`./mapas_ibge/${arquivo}.zip`);
+        if (!response.ok) throw new Error("Arquivo não encontrado no servidor.");
+        
+        const buffer = await response.arrayBuffer();
+        const geojson = await shp(buffer);
+
+        const camada = L.geoJSON(geojson, {
+            style: { color: "#3b82f6", weight: 2, fillOpacity: 0.2 },
+            onEachFeature: (feature, layer) => {
+                let p = feature.properties;
+                // Cria um popup com todos os dados que o IBGE mandou no arquivo
+                let info = Object.entries(p).map(([k, v]) => `<b>${k}:</b> ${v}`).join('<br>');
+                layer.bindPopup(`<div style="font-size:11px; max-height:150px; overflow:auto;">${info}</div>`);
+            }
+        }).addTo(map);
+
+        // Adiciona ao menu de overlays para ligar/desligar
+        layerControl.addOverlay(camada, "📁 " + arquivo);
+        
+        map.fitBounds(camada.getBounds());
+        mapaStatus.update(`✅ ${arquivo} carregado.`);
+        setTimeout(() => mapaStatus.update(""), 4000);
+
+    } catch (err) {
+        console.error(err);
+        mapaStatus.update("❌ Erro: " + err.message);
+    }
+}
+
+/*
+// 3. Monitora quando o usuário escolhe a opção "Carregar Mapa Local"
+map.on('baselayerchange', function(e) {
+    if (e.name === "Carregar Mapa Local") {
+        document.getElementById('localTileInput').click(); // Abre o seletor de arquivos
+    }
+});
+
+// 4. Processa os arquivos selecionados
+document.getElementById('localTileInput').onchange = function(e) {
+    const files = e.target.files;
+    if (files.length === 0) return;
+
+    // Criamos uma URL base temporária para os arquivos locais
+    // Nota: Isso funciona melhor se os arquivos estiverem em uma estrutura padrão
+    // Para tiles locais via browser, usamos um Blob URL ou um servidor local.
+    
+    // Como carregar pastas locais diretamente via browser é limitado por segurança, 
+    // a forma mais estável é usar um "TileLayer" customizado ou GeoJSON:
+    
+    alert("Pasta selecionada com " + files.length + " arquivos. Iniciando leitura...");
+    
+    // Exemplo: Se for um GeoJSON local selecionado:
+    const file = files[0];
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        try {
+            const geojson = JSON.parse(event.target.result);
+            const localLayer = L.geoJSON(geojson).addTo(map);
+            layerControl.addOverlay(localLayer, "Arquivo Local: " + file.name);
+            map.fitBounds(localLayer.getBounds());
+            mapaStatus.update("✅ Mapa local carregado: " + file.name);
+        } catch (err) {
+            alert("Erro ao ler GeoJSON local.");
+        }
+    };
+    reader.readAsText(file);
+};
+*/
+function activateFullscreen() {
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+}
+
 function getInfoTipo(r) {
-    const t = (r.Tipo || "").toLowerCase();
-    if (t.includes('câmera')) return { fa: 'fa-video', color: '#ef4444' };
+    const t = (r.Tipo || "").toLowerCase(), az = r.Azimute && !isNaN(parseFloat(r.Azimute));
+    if (t.includes('câmera')) return { fa: az ? 'fa-camera' : 'fa-video', color: '#ef4444' };
     if (t.includes('reta')) return { fa: 'fa-arrows-left-right', color: '#8b5cf6' };
+    if (t.includes('área')) return { fa: 'fa-draw-polygon', color: '#10b981' };
     return { fa: 'fa-location-dot', color: '#3b82f6' };
 }
 
@@ -119,149 +411,440 @@ function plotarRegistro(r, emMassa = false) {
     const lons = r.Longitude.toString().split(/[;]| - | , /).map(n => parseFloat(n.trim())).filter(n => !isNaN(n));
     if (!lats.length) return [];
     
-    let layers = [], info = getInfoTipo(r), az = parseFloat(r.Azimute);
+    let layers = [], info = getInfoTipo(r);
+    const az = parseFloat(r.Azimute);
     
     if (lats.length > 1) {
-        const poly = L.polygon(lats.map((l, i) => [l, lons[i]]), {color: info.color, weight: 3}).addTo(map);
-        layers.push(poly);
+        const shape = L.polygon(lats.map((l, i) => [l, lons[i]]), {color: info.color, weight: 3}).addTo(map);
+        layers.push(shape);
     } else {
         const coord = [lats[0], lons[0]];
         const icon = L.divIcon({ className: '', html: `<div style="background:${info.color}; width:28px; height:28px; border-radius:8px; border:2px solid #fff; color:#fff; display:flex; align-items:center; justify-content:center;"><i class="fa-solid ${info.fa}"></i></div>`, iconAnchor:[14,14] });
         const m = L.marker(coord, {icon: icon});
         
         if(!isNaN(az)) {
-            const d = 0.00045, aRad = (az - 90) * Math.PI / 180;
+            const d = 0.00045;
+            const aRad = (az - 90) * Math.PI / 180;
             const p2 = [coord[0] + d * Math.cos(aRad - 0.4), coord[1] + d * Math.sin(aRad - 0.4)];
             const p3 = [coord[0] + d * Math.cos(aRad + 0.4), coord[1] + d * Math.sin(aRad + 0.4)];
             const cone = L.polygon([coord, p2, p3], {color: info.color, weight:1, fillOpacity:0.3}).addTo(map);
             layers.push(cone);
+
+            const compassHtml = `<div class="compass-icon" style="transform: rotate(${az}deg); color: #fff; font-size: 40px; text-shadow: 0 0 10px #000;"><i class="fa-solid fa-compass"></i></div>`;
+            const compassIcon = L.divIcon({ className: '', html: compassHtml, iconAnchor:[20,20] });
+            const compassMarker = L.marker(coord, {icon: compassIcon, zIndexOffset: -100, interactive: false}).addTo(map);
+            layers.push(compassMarker);
         }
-        markersCluster.addLayer(m);
-        layers.push(m);
+        markersCluster.addLayer(m); layers.push(m);
     }
+    layers.forEach(l => { if(l.bindTooltip) l.bindTooltip(`<b>${r.Equipamento}</b>`, {permanent: false}); });
     if(!emMassa) map.setView([lats[0], lons[0]], 17);
     return layers;
 }
 
-// RESTAURAÇÃO: CLIQUES NO MAPA (CONCATENAÇÃO)
-map.on('click', (e) => {
-    if (isMeasuring || !document.getElementById("drawer").classList.contains("active")) return;
-    const lat = e.latlng.lat.toFixed(6), lon = e.latlng.lng.toFixed(6);
-    if(confirm(`Concatenar Coordenada?`)) {
-        const iL = document.getElementById('inp_Latitude'), iO = document.getElementById('inp_Longitude');
-        iL.value = iL.value ? iL.value + ' - ' + lat : lat;
-        iO.value = iO.value ? iO.value + ' - ' + lon : lon;
-    }
-});
+function renderTable() {
+    const tbody = document.getElementById("tbody"); tbody.innerHTML = "";
+    filtered.forEach((r, i) => {
+        const tr = document.createElement("tr"), info = getInfoTipo(r);
+        tr.onclick = () => {
+            if(clickTimer){ clearTimeout(clickTimer); clickTimer=null; openDrawer(i); }
+            else { clickTimer = setTimeout(()=>{ clickTimer=null; toggleRegistro(r, i); }, 250); }
+        };
+        tr.innerHTML = `<td>${i+1}</td><td><i class="fa-solid ${info.fa}" style="color:${info.color}"></i> ${r.Tipo}</td><td>${r.Equipamento}</td><td>${r.Azimute}</td><td>${r.Latitude.toString().slice(0,7)}</td><td>${r.Longitude.toString().slice(0,7)}</td>`;
+        tbody.appendChild(tr);
+    });
+}
 
-// RESTAURAÇÃO: GOOGLE MAPS E GPS
+function toggleRegistro(r, idx) {
+    if (camadasAtivas[idx]) {
+        camadasAtivas[idx].forEach(l => markersCluster.hasLayer(l) ? markersCluster.removeLayer(l) : map.removeLayer(l));
+        delete camadasAtivas[idx];
+    } else { camadasAtivas[idx] = plotarRegistro(r); }
+}
+
+// GOOGLE MAPS EXTERNO (GRATUITO)
 document.getElementById('googleMapsBtn').onclick = () => {
     const lat = document.getElementById('inp_Latitude').value.split(' - ')[0];
     const lon = document.getElementById('inp_Longitude').value.split(' - ')[0];
-    if(lat) window.open(`https://www.google.com/maps?q=${lat},${lon}`, '_blank');
+    if(lat && lon) {
+        window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`, '_blank');
+    } else { mostrarAlerta("Coordenadas ausentes."); }
 };
 
-document.getElementById('geoBtn').onclick = () => {
-    const options = {
-        enableHighAccuracy: true, // Força maior precisão (ex: GPS)
-        timeout: 5000,            // Tempo máximo de espera (5 segundos)
-        maximumAge: 0             // Não aceita localização em cache
-    };
-    navigator.geolocation.getCurrentPosition(pos => {
-        //Preenche os campos do furmulário
-        const lat = pos.coords.latitude.toFixed(6), lon = pos.coords.longitude.toFixed(6);
-        const iL = document.getElementById('inp_Latitude'), iO = document.getElementById('inp_Longitude');
-        iL.value = iL.value ? iL.value + ' - ' + lat : lat;
-        iO.value = iO.value ? iO.value + ' - ' + lon : lon;
-// 1. Centraliza o mapa na posição do usuário
-        map.setView([lat, lon], 17);
-
-        // 2. Cria e abre o Popup no mapa
-        L.popup()
-            .setLatLng([lat, lon])
-            .setContent(`
-                <div style="text-align:center; font-family: sans-serif;">
-                    <b style="color: #14532d;">Sua Localização</b><br>
-                    <hr style="border:0; border-top:1px solid #eee; margin:5px 0">
-                    <b>Lat:</b> ${lat.toFixed(6)}<br>
-                    <b>Lon:</b> ${lon.toFixed(6)}<br>
-                    <small>Precisão: <b>${acc}m</b></small>
-                </div>
-            `)
-            .openOn(map);
-
-        // Centraliza o mapa na posição
-        map.setView([lat, lon], 16);
-
-    }, erroGeo,options);
+document.getElementById('downloadBtn').onclick = () => {
+    let nomeFinal = nomeArquivoOriginal;
+    if (!nomeFinal) {
+        let inputNome = prompt("Nome do arquivo:", "meu_mapa");
+        if (inputNome === null) return;
+        nomeFinal = inputNome.trim() ? inputNome.trim() + ".csv" : "base_geopainel.csv";
+    }
+    let csv = "\uFEFF" + COLS.join(",") + "\n";
+    filtered.forEach(r => {
+        csv += COLS.map(c => {
+            let v = (r[c]||"").toString();
+            if(c === "Ativo") v = (v === "Sim" || v === "true") ? "true" : "false";
+            return `"${v.replaceAll(/[;]| , /g, ' - ')}"`;
+        }).join(",") + "\n";
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+    link.download = nomeFinal; link.click();
 };
-
-function erroGeo(err) {
-    console.warn(`ERRO(${err.code}): ${err.message}`);
-}
-// RÉGUA (RESTAURADA)
+/*
+// MEDIÇÃO
 const CustomMeasure = L.Control.extend({
     options: { position: 'topright' },
     onAdd: function() {
         const div = L.DomUtil.create('div', 'leaflet-measure-btn');
-        div.innerHTML = `<i class="fa-solid fa-ruler-combined"></i><div class="floating-menu" id="mMenu" style="right:42px;top:0"><button onclick="startMeasure('line')">Distância</button><button onclick="clearMeasure()" style="color:red">Limpar</button></div>`;
+        div.innerHTML = `<i class="fa-solid fa-ruler-combined"></i><div class="measure-menu" id="mMenu"><button onclick="startMeasure('line')">Linha</button><button onclick="startMeasure('area')">Área</button><button onclick="clearMeasure()" style="color:#f87171">Limpar</button></div>`;
         div.onclick = (e) => { e.stopPropagation(); document.getElementById('mMenu').classList.toggle('active'); };
         return div;
     }
 });
 map.addControl(new CustomMeasure());
-let measureGroup = L.layerGroup().addTo(map), mPoints = [];
-function startMeasure(mode) { clearMeasure(); isMeasuring = true; map.on('click', (e) => { mPoints.push(e.latlng); L.polyline(mPoints, {color:'yellow'}).addTo(measureGroup); }); }
-function clearMeasure() { isMeasuring = false; map.off('click'); measureGroup.clearLayers(); mPoints = []; }
+*/
+// Cria um elemento de rodapé personalizado no Leaflet
+const mapaStatus = L.control({ position: 'bottomleft' });
 
-// TABELA E DRAWER
-function renderTable() {
-    const tbody = document.getElementById("tbody"); tbody.innerHTML = "";
-    filtered.forEach((r, i) => {
-        const tr = document.createElement("tr");
-        tr.onclick = () => { if(clickTimer){ clearTimeout(clickTimer); clickTimer=null; openDrawer(i); } else { clickTimer = setTimeout(()=>{ clickTimer=null; toggleRegistro(r, i); }, 250); } };
-        tr.innerHTML = `<td>${i+1}</td><td>${r.Tipo}</td><td>${r.Equipamento}</td><td>${r.Azimute}</td><td>${r.Latitude.toString().slice(0,7)}</td><td>${r.Longitude.toString().slice(0,7)}</td>`;
-        tbody.appendChild(tr);
-    });
-}
-function toggleRegistro(r, idx) {
-    if (camadasAtivas[idx]) { camadasAtivas[idx].forEach(l => markersCluster.hasLayer(l) ? markersCluster.removeLayer(l) : map.removeLayer(l)); delete camadasAtivas[idx]; }
-    else { camadasAtivas[idx] = plotarRegistro(r); }
-}
-function openDrawer(idx) { selectedIndex = idx; const grid = document.getElementById("drawerGrid"); grid.innerHTML = ""; COLS.forEach(c => grid.innerHTML += `<div><label>${c}</label><input id="inp_${c}" value="${filtered[idx][c]||''}"></div>`); document.getElementById("drawer").classList.add("active"); }
-function closeDrawer() { document.getElementById("drawer").classList.remove("active"); }
-// Incluir
-document.getElementById('addBtn').onclick = () => { 
-    tabelaGeo.push({Tipo: "Ponto", Equipamento: "Novo", Ativo: "Sim", Azimute: "", Latitude: "", Longitude: ""}); 
-    filtered = [...tabelaGeo]; renderTable(); openDrawer(filtered.length-1); 
+mapaStatus.onAdd = function (map) {
+    this._div = L.DomUtil.create('div', 'map-footer');
+    this._div.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    this._div.style.color = 'white';
+    this._div.style.padding = '5px 10px';
+    this._div.style.fontSize = '12px';
+    this._div.style.fontFamily = 'sans-serif';
+    this._div.style.borderRadius = '4px';
+    this._div.style.marginBottom = '10px';
+    this._div.style.display = 'none'; // Começa escondido
+    return this._div;
 };
 
-// UPLOAD CSV/ZIP
+mapaStatus.update = function (texto) {
+    this._div.innerHTML = texto;
+    this._div.style.display = texto ? 'block' : 'none';
+};
+
+mapaStatus.addTo(map);
+let measureGroup = L.layerGroup().addTo(map), mPoints = [], mShape = null;
+function startMeasure(mode) {
+    clearMeasure();
+    map.on('click', (e) => {
+        if(document.getElementById("drawer").classList.contains("active")) return;
+        mPoints.push(e.latlng);
+        if(mShape) map.removeLayer(mShape);
+        if(mode === 'line') {
+            mShape = L.polyline(mPoints, {color: '#fbbf24', weight: 4}).addTo(measureGroup);
+            if(mPoints.length > 1) {
+                let d = 0; for(let i=0; i<mPoints.length-1; i++) d += mPoints[i].distanceTo(mPoints[i+1]);
+                mShape.bindTooltip(`${d.toFixed(1)}m`, {permanent:true}).openTooltip();
+            }
+        } else {
+            mShape = L.polygon(mPoints, {color: '#fbbf24', fillOpacity: 0.3}).addTo(measureGroup);
+        }
+    });
+}
+function clearMeasure() { map.off('click'); measureGroup.clearLayers(); mPoints = []; mShape = null; document.getElementById('mMenu').classList.remove('active'); }
+
+// DRAWER & GPS
+function openDrawer(idx) {
+    activateFullscreen();
+    selectedIndex = idx; const grid = document.getElementById("drawerGrid"); grid.innerHTML = "";
+    COLS.forEach(c => {
+        if(c === "Ativo") {
+            const v = (filtered[idx][c] === "true" || filtered[idx][c] === "Sim") ? "Sim" : "Não";
+            grid.innerHTML += `<div><label>${c}</label><select id="inp_${c}"><option value="Sim" ${v==='Sim'?'selected':''}>Sim</option><option value="Não" ${v==='Não'?'selected':''}>Não</option></select></div>`;
+        } else grid.innerHTML += `<div><label>${c}</label><input id="inp_${c}" value="${filtered[idx][c]||''}"></div>`;
+    });
+    document.getElementById("drawer").classList.add("active");
+}
+function closeDrawer() { document.getElementById("drawer").classList.remove("active"); }
+/*
+document.getElementById('geoBtn').onclick = () => {
+    navigator.geolocation.getCurrentPosition(pos => {
+        // Guardamos os números para o mapa e as strings para o texto
+        const latNum = pos.coords.latitude;
+        const lonNum = pos.coords.longitude;
+        const latStr = latNum.toFixed(6);
+        const lonStr = lonNum.toFixed(6);
+        const acc = pos.coords.accuracy.toFixed(1); // Definindo a variável acc corretamente
+
+        // 1. Cria um marcador temporário com Tooltip da precisão
+        const temp = L.marker([latNum, lonNum])
+            .addTo(map)
+            .bindTooltip(`${acc}m`, { permanent: true })
+            .openTooltip();
+
+        // 2. Cria e abre o Popup formatado
+        L.popup()
+            .setLatLng([latNum, lonNum])
+            .setContent(`
+                <div style="text-align:center; font-family: sans-serif; color: #000;">
+                    <b style="color: #000000;">Sua Localização</b><br>
+                    <hr style="border:0; border-top:1px solid #ccc; margin:5px 0">
+                    <b>Lat:</b> ${latStr}<br>
+                    <b>Lon:</b> ${lonStr}<br>
+                    <small>Precisão: <b>${acc}m</b></small>
+                </div>
+            `)
+            .openOn(map);
+
+        // 3. Centraliza o mapa
+        map.setView([latNum, lonNum], 18);
+
+        // 4. Aguarda meio segundo para o usuário ver o ponto antes de perguntar
+        setTimeout(() => {
+            if(confirm(`Adicionar coordenadas de GPS ao formulário?`)) {
+                const iL = document.getElementById('inp_Latitude');
+                const iO = document.getElementById('inp_Longitude');
+                
+                // Concatena se já houver valor
+                iL.value = iL.value ? iL.value + ' - ' + latStr : latStr;
+                iO.value = iO.value ? iO.value + ' - ' + lonStr : lonStr;
+            }
+            // Remove o marcador temporário e o popup após a decisão
+            map.removeLayer(temp);
+            map.closePopup();
+        }, 500);
+
+    }, (err) => {
+        alert("Erro ao obter GPS: " + err.message);
+    }, {
+        enableHighAccuracy: true,
+        timeout: 10000 // Aumentado para 10s para garantir sinal em locais difíceis
+    });
+};
+*/
+document.getElementById('geoBtn').onclick = () => {
+    navigator.geolocation.getCurrentPosition(pos => {
+        const lat = pos.coords.latitude, lon = pos.coords.longitude;
+        const latStr = lat.toFixed(6), lonStr = lon.toFixed(6);
+        const acc = pos.coords.accuracy.toFixed(1);
+
+        // 1. Marcação visual temporária
+        const temp = L.marker([lat, lon]).addTo(map)
+            .bindTooltip(`
+                <div style="text-align: left; line-height: 1.2;">
+                    <b>Lat:</b> ${latStr}<br>
+                    <b>Lon:</b> ${lonStr}<br>
+                    <b>Precisão:</b> ${acc}m
+                </div>
+            `, {
+                permanent: true, 
+                direction: 'top',
+                className: 'gps-tooltip' // Classe opcional para estilização CSS
+            }).openTooltip();
+
+        map.setView([lat, lon], 18);
+
+        // 2. Atualiza o rodapé com a pergunta
+        mapaStatus.update(`
+            📍 GPS Capturado (${acc}m). Adicionar ao formulário? 
+            <button id="gpsSim" style="background:#22c55e; color:white; border:none; padding:4px 12px; cursor:pointer; margin-left:10px; border-radius:4px;">Sim</button>
+            <button id="gpsNao" style="background:#ef4444; color:white; border:none; padding:4px 12px; cursor:pointer; margin-left:5px; border-radius:4px;">Não</button>
+        `);
+
+        // 3. Lógica do botão SIM (Sem a mensagem "Adicionar coordenadas?")
+        document.getElementById('gpsSim').onclick = () => {
+            const iL = document.getElementById('inp_Latitude'), iO = document.getElementById('inp_Longitude');
+            
+            // Inserção direta e silenciosa
+            iL.value = iL.value ? iL.value + ' - ' + latStr : latStr;
+            iO.value = iO.value ? iO.value + ' - ' + lonStr : lonStr;
+            
+            limparStatus();
+        };
+
+        // 4. Lógica do botão NÃO
+        document.getElementById('gpsNao').onclick = () => {
+            limparStatus();
+        };
+
+        function limparStatus() {
+            if (map.hasLayer(temp)) map.removeLayer(temp);
+            mapaStatus.update(""); // Esconde o rodapé imediatamente
+        }
+
+    }, (err) => {
+        alert("Erro ao obter GPS: " + err.message);
+    }, {enableHighAccuracy:true, timeout: 10000});
+};
+/*on('click', (e) => {
+    if (document.getElementById("drawer").classList.contains("active")) {
+        const lat = e.latlng.lat.toFixed(6), lon = e.latlng.lng.toFixed(6);
+        const tempM = L.marker(e.latlng).addTo(map).bindTooltip(`${lat}, ${lon}`, {permanent:true}).openTooltip();
+        setTimeout(() => {
+            if(confirm(`Adicionar coordenadas?`)) {
+                const iL = document.getElementById('inp_Latitude'), iO = document.getElementById('inp_Longitude');
+                iL.value = iL.value ? iL.value + ' - ' + lat : lat;
+                iO.value = iO.value ? iO.value + ' - ' + lon : lon;
+            }
+            map.removeLayer(tempM);
+        }, 100);
+    }
+});
+*/
+
+// UPLOAD & CONTROLES GERAIS
 document.getElementById('uploadBtn').onclick = () => document.getElementById('csvFile').click();
 document.getElementById('csvFile').onchange = async e => {
     const file = e.target.files[0]; if(!file) return;
-    if(file.name.endsWith('.zip')) {
-        const geojson = await shp(await file.arrayBuffer());
-        tabelaGeo = (Array.isArray(geojson) ? geojson[0].features : geojson.features).map(f => {
-            let o = {}; COLS.forEach(c => o[c] = f.properties[c] || "");
-            if(f.geometry.type==='Point'){ o.Latitude=f.geometry.coordinates[1]; o.Longitude=f.geometry.coordinates[0]; }
-            return o;
+    nomeArquivoOriginal = file.name; const text = await file.text();
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    const head = lines[0].split(","); const m = {}; COLS.forEach(c => m[c] = head.indexOf(c));
+    tabelaGeo = lines.slice(1).map(l => {
+        const v = l.split(","); let o = {};
+        COLS.forEach(c => {
+            let val = (m[c]!==-1 && v[m[c]]) ? v[m[c]].replace(/["']/g, '').trim() : "";
+            if(c === "Ativo") val = (val === "true" || val === "Sim") ? "Sim" : "Não";
+            o[c] = val;
         });
-    } else {
-        const text = await file.text();
-        const lines = text.split(/\r?\n/).filter(l => l.trim()), head = lines[0].split(",");
-        const m = {}; COLS.forEach(c => m[c] = head.indexOf(c));
-        tabelaGeo = lines.slice(1).map(l => { const v = l.split(","); let o = {}; COLS.forEach(c => o[c] = (m[c]!==-1 && v[m[c]]) ? v[m[c]].trim() : ""); return o; });
-    }
+        return o;
+    });
     filtered = [...tabelaGeo]; renderTable();
 };
 
-function toggleMenu(id) { document.querySelectorAll('.floating-menu').forEach(el => { if(el.id === id) el.classList.toggle('active'); else el.classList.remove('active'); }); }
-function exportData(format) { /* mesma lógica de exportação v12.2 */ }
+document.getElementById('plotAllBtn').onclick = () => {
+    // 1. Verifica quantos registros estão atualmente visíveis no mapa
+    const totalAtivos = Object.keys(camadasAtivas).length;
 
-document.getElementById('drawerForm').onsubmit = e => { e.preventDefault(); COLS.forEach(c => filtered[selectedIndex][c] = document.getElementById('inp_'+c).value); renderTable(); closeDrawer(); };
-document.getElementById('plotAllBtn').onclick = () => { const ativos = Object.keys(camadasAtivas); if(ativos.length > 0) ativos.forEach(idx => toggleRegistro(filtered[idx], idx)); else filtered.forEach((r, i) => toggleRegistro(r, i)); };
+    if (totalAtivos > 0) {
+        // 2. Se houver algo plotado, vamos LIMPAR TUDO
+        Object.keys(camadasAtivas).forEach(idx => {
+            // Chamamos a função toggleRegistro que você já tem para remover a camada
+            toggleRegistro(filtered[idx], idx);
+        });
+        // Adicione isso dentro do 'if (totalAtivos > 0)'
+        document.getElementById('plotAllBtn').style.background = "var(--accent)";
+    } else {
+        // 3. Se o mapa estiver vazio, vamos PLOTAR TUDO
+        filtered.forEach((r, i) => {
+            // Só plota se já não estiver ativo (evita duplicados)
+            if (!camadasAtivas[i]) {
+                toggleRegistro(r, i);
+            }
+        });
+        
+        // Opcional: Ajustar o zoom para mostrar todos os pontos novos
+        if (filtered.length > 0) {
+            const group = new L.featureGroup(Object.values(camadasAtivas).flat());
+            map.fitBounds(group.getBounds(), { padding: [20, 20] });
+        }
+        document.getElementById('plotAllBtn').style.background = "#1d4ed8"; // Azul vibrante quando ativo
+    }
+};
+
+document.getElementById('addBtn').onclick = () => { 
+    tabelaGeo.push({Tipo: "(Linha / Quadrado / Ponto / Polígono)", Equipamento: "", Ativo: "Sim", Azimute: "", Latitude: "", Longitude: ""}); 
+    filtered = [...tabelaGeo]; renderTable(); openDrawer(filtered.length-1); 
+};
+
+// Função de validação dedicada
+function validarCampos(dados) {
+    const { Tipo, Equipamento, Latitude, Longitude } = dados;
+
+    // 1. Verificação de Campos Vazios
+    if (!Tipo || !Equipamento || !Latitude || !Longitude) {
+        alert("Erro: Os campos Tipo, Equipamento, Latitude e Longitude são obrigatórios.");
+        return false;
+    }
+
+    // 2. Validação do Sufixo do Tipo
+    const sufixosValidos = ["(linha)", "(ponto)", "(retângulo)", "(círculo)", "(ponto/polígono)", "(polígono)"];
+    const tipoValido = sufixosValidos.some(sufixo => Tipo.trim().toLowerCase().endsWith(sufixo.toLowerCase()));
+    
+    if (!tipoValido) {
+        alert("Erro: O campo 'Tipo' deve terminar com um dos sufixos permitidos:\n(inha), (ponto), (retângulo), (círculo), (ponto/polígono) ou (polígono)");
+        return false;
+    }
+
+    // 3. Validação de Coordenadas Longas (Separadores)
+    const validarCoordenada = (valor, nomeCampo) => {
+        const str = valor.toString();
+        if (str.length > 10) {
+            if (!str.includes(' - ') && !str.includes(';')) {
+                alert(`Erro no campo ${nomeCampo}: Para coordenadas longas, utilize os separadores ' - ' ou ';'`);
+                return false;
+            }
+        }
+        return true;
+    };
+
+    if (!validarCoordenada(Latitude, "Latitude") || !validarCoordenada(Longitude, "Longitude")) {
+        return false;
+    }
+
+    return true; // Passou em todas as validações
+}
+
+// Evento onsubmit atualizado
+document.getElementById('drawerForm').onsubmit = e => {
+    e.preventDefault();
+
+    // 1. Coleta os dados dos inputs
+    let novosDados = {};
+    COLS.forEach(c => {
+        novosDados[c] = document.getElementById('inp_' + c).value.trim();
+    });
+
+    const { Tipo, Equipamento, Latitude, Longitude } = novosDados;
+
+    // --- BLOCO DE VALIDAÇÃO ---
+    
+    // Função auxiliar para mostrar erro no rodapé
+    const mostrarErro = (msg) => {
+        mapaStatus.update(`<span style="color: #f87171;">⚠️ ${msg}</span>`);
+        setTimeout(() => mapaStatus.update(""), 5000); // Some após 5 segundos
+    };
+
+    // A. Verificação de Campos Vazios
+    if (!Tipo || !Equipamento || !Latitude || !Longitude) {
+        mostrarErro("Campos Tipo, Equipamento, Lat e Lon são obrigatórios.");
+        return;
+    }
+
+    // B. Validação do Sufixo do Tipo
+    const sufixosValidos = ["(linha)", "(ponto)", "(retângulo)", "(círculo)", "(ponto/polígono)", "(polígono)"];
+    const tipoValido = sufixosValidos.some(suf => Tipo.toLowerCase().endsWith(suf));
+    
+    if (!tipoValido) {
+        mostrarErro("O Tipo deve terminar com " + sufixosValidos);
+        return;
+    }
+
+    // C. Validação de Coordenadas Longas (Separadores)
+    const validarCoord = (valor) => {
+        const str = valor.toString();
+        return str.length <= 10 || str.includes(' - ') || str.includes(';');
+    };
+
+    if (!validarCoord(Latitude) || !validarCoord(Longitude)) {
+        mostrarErro("Use ' - ' ou ';' para separar múltiplas coordenadas.");
+        return;
+    }
+
+    // --- SE PASSAR NA VALIDAÇÃO, SALVA ---
+    COLS.forEach(c => {
+        filtered[selectedIndex][c] = novosDados[c];
+    });
+
+    renderTable();
+    closeDrawer();
+    
+    // Feedback de sucesso no rodapé
+    mapaStatus.update(`<span style="color: #4ade80;">✅ Registro salvo com sucesso!</span>`);
+    setTimeout(() => mapaStatus.update(""), 3000);
+};
+document.getElementById('search').oninput = e => {
+    const val = e.target.value.toLowerCase();
+    filtered = tabelaGeo.filter(r => Object.values(r).some(v => v.toString().toLowerCase().includes(val)));
+    renderTable();
+};
+
+function mostrarAlerta(msg) {
+    const el = document.getElementById('customAlert');
+    el.innerText = msg; el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3000);
+}
 </script>
 </body>
 </html>
-
