@@ -202,10 +202,14 @@ const mapaLocalVazio = L.tileLayer('', { attribution: 'IBGE / Local' });
 
 // Adicione isso logo no início das variáveis globais
 const CONFIG_MAPAS = {
-    "bc250_2025-11-21": 22, // Mapa muito detalhado
-    "ES_Municipios_2024": 18,
-    "ES_UF_2024": 15        // Mapa geral, não precisa de tanto zoom
+
+    "ES_Municipios_2024": 19,
+       "Regiões Geográficas Imediatas": 20,
+        "Regiões Geográficas Intermediárias" : 21, 
+    "ES_UF_2024": 17        // Mapa geral, não precisa de tanto zoom
 };
+
+    
 
 
 
@@ -287,7 +291,7 @@ async function carregarListaDeMapas() {
     
     // Lista de backup caso o fetch falhe (CORS ou arquivo ausente)
     const listaBackup = [
-        { "nome": "Base Cartográfica 250k (Nov/25)", "arquivo": "bc250_2025-11-21" },
+
         { "nome": "Municípios do ES (2024)", "arquivo": "ES_Municipios_2024" },
         { "nome": "Regiões Geográficas Imediatas", "arquivo": "ES_RG_Imediatas_2024" },
         { "nome": "Regiões Geográficas Intermediárias", "arquivo": "ES_RG_Intermediarias_2024" },
@@ -351,7 +355,7 @@ async function confirmarCarregamento() {
                 // Seu código da tabela/popup...
             }
         }).addTo(map);
-        
+
         // A. Identificamos qual arquivo foi carregado (ajuste o 'id_do_select' para o seu)
         const arquivoAtual = document.getElementById('id_do_select').value;
 
