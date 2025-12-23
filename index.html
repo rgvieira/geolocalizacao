@@ -330,12 +330,12 @@ async function confirmarCarregamento() {
         const camada = L.geoJSON(geojson, {
             style: { 
                 color: "#1e40af", 
-                weight: 1,       // Linha mais fina tende a parecer mais nítida
-                opacity: 1,      // Borda 100% opaca
-                fillOpacity: 0.25 
+                weight: 2,       // Aumentamos um pouco para o contorno ficar bem visível
+                opacity: 1,      // Linha 100% sólida
+                fill: false      // Remove o preenchimento (fica transparente por dentro)
             },
             onEachFeature: (f, layer) => {
-                // ... seu código da tabela permanece igual
+                // Seu código da tabela/popup...
             }
         }).addTo(map);
 
