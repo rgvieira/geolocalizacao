@@ -201,9 +201,9 @@ const mapaLocalVazio = L.tileLayer('', { attribution: 'IBGE / Local' });
 // Adicione isso logo no início das variáveis globais
 const CONFIG_MAPAS = {
 
-    "ES_Municipios_2024": 19,
-       "Regiões Geográficas Imediatas": 20,
-        "Regiões Geográficas Intermediárias" : 21, 
+    "ES_Municipios_2024": 20,
+    "Regiões Geográficas Imediatas": 20,
+    "Regiões Geográficas Intermediárias" : 21, 
     "ES_UF_2024": 17        // Mapa geral, não precisa de tanto zoom
 };
 
@@ -355,7 +355,8 @@ async function confirmarCarregamento() {
         const arquivoAtual = document.getElementById('zipSelect').value;
 
         // B. Ajustamos o zoom máximo permitido
-        const maxZoomDefinido = CONFIG_MAPAS[arquivoAtual] || 18;
+        const maxZoomDefinido = CONFIG_MAPAS[arquivoAtual] || 19;
+console.log('Zoom máximo definido:', maxZoomDefinido);
         map.setMaxZoom(maxZoomDefinido);
 
         // C. Zoom automático para enquadrar o mapa
